@@ -149,6 +149,32 @@ export default function HighlightedText({ text, factChecks }: HighlightedTextPro
                   <p className="text-gray-900 mt-1">{selectedFactCheck.correction}</p>
                 </div>
               )}
+
+              {selectedFactCheck.sources && selectedFactCheck.sources.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500 mb-2">Sources</p>
+                  <div className="space-y-2">
+                    {selectedFactCheck.sources.map((source, index) => (
+                      <a
+                        key={index}
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block p-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
+                      >
+                        <p className="text-sm font-medium text-blue-600 hover:underline">
+                          {source.title}
+                        </p>
+                        {source.snippet && (
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                            {source.snippet}
+                          </p>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <button

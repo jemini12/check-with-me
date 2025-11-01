@@ -6,6 +6,13 @@ export interface FactCheck {
   confidence: number;
   reason: string;
   correction: string | null;
+  sources?: Source[];
+}
+
+export interface Source {
+  url: string;
+  title: string;
+  snippet?: string;
 }
 
 export interface FactCheckResponse {
