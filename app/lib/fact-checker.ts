@@ -1,131 +1,292 @@
 import OpenAI from 'openai';
-import { FactCheck } from './types';
+import { FactCheck, Source } from './types';
 import { searchWeb } from './web-search';
+import { OPENAI_CONFIG, ERROR_MESSAGES } from './config';
+import { getOpenAIApiKey, getOpenAIModel } from './env';
+import { logger } from './logger';
+import {
+  INITIAL_SCREENING_PROMPT,
+  createVerificationPrompt,
+  createScreeningInput,
+  createVerificationInput,
+} from './prompts';
+import {
+  validateClaimsToVerify,
+  safeJsonParse,
+  ClaimToVerify,
+} from './validation';
+import { ProcessingError, toAppError } from './errors';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+/**
+ * Creates an OpenAI client instance with validated configuration
+ */
+function createOpenAIClient(): OpenAI {
+  return new OpenAI({
+    apiKey: getOpenAIApiKey(),
+  });
+}
+
+/**
+ * Creates OpenAI API parameters for responses
+ * Pure function returning consistent configuration
+ */
+const createOpenAIParams = (modelName: string, effort: 'medium' | 'high') => ({
+  model: modelName,
+  reasoning: { effort },
+  max_output_tokens: OPENAI_CONFIG.MAX_OUTPUT_TOKENS,
 });
 
-const SYSTEM_PROMPT_WITH_CONTEXT = (webContext: string) => `You are a rigorous fact-checker with access to comprehensive knowledge AND real-time web search results. Your task is to thoroughly analyze text and identify ANY false, misleading, outdated, or inaccurate claims in ANY language (English, Korean, Japanese, Chinese, etc.).
+/**
+ * Formats search results into a readable context string
+ * Pure function with no side effects
+ */
+const formatSearchResults = (results: Source[]): string =>
+  results
+    .map((source, idx) => `[${idx + 1}] ${source.title}\nURL: ${source.url}\n${source.snippet || ''}\n`)
+    .join('\n');
 
-${webContext ? `\n===== REAL-TIME WEB SEARCH RESULTS =====\n${webContext}\n===== END OF WEB SEARCH RESULTS =====\n` : ''}
+/**
+ * Calculates the position of a claim in the original text
+ * Pure function that handles missing claims gracefully
+ */
+const calculateClaimPosition = (text: string, claim: string): { start: number; end: number } => {
+  const claimIndex = text.indexOf(claim);
+  return claimIndex >= 0
+    ? { start: claimIndex, end: claimIndex + claim.length }
+    : { start: 0, end: claim.length };
+};
 
-Be thorough and critical:
-- Check factual claims against the provided web search results AND your knowledge
-- Verify dates, numbers, statistics, and historical facts
-- Identify misleading or exaggerated statements
-- Flag outdated information that is no longer accurate
-- Question claims that lack evidence or are unprovable
-- Prioritize recent web search results over older knowledge
-- Works with all languages including Korean (한국어), Japanese (日本語), Chinese (中文), etc.
+/**
+ * Performs initial screening to identify claims that need verification
+ */
+async function performInitialScreening(
+  openai: OpenAI,
+  text: string,
+  modelName: string
+): Promise<ClaimToVerify[]> {
+  logger.info('Step 1: Identifying claims that need verification');
 
-For EACH inaccurate claim you find:
-1. Extract the EXACT text of the claim from the original (match it precisely, character-by-character)
-2. Instead of providing positions, just provide the exact claim text - we'll find it automatically
-3. Set "is_accurate" to false
-4. Provide a confidence score between 0.7-1.0 (only flag if confident)
-5. Explain clearly WHY it's false or misleading, referencing web sources when available
-6. Provide the accurate correction based on the latest information
+  const params = createOpenAIParams(modelName, OPENAI_CONFIG.SCREENING_EFFORT);
 
-Return ONLY a valid JSON array. Example format:
-[
-  {
-    "claim": "exact text from original",
-    "is_accurate": false,
-    "confidence": 0.95,
-    "reason": "explanation of why this is false based on current information",
-    "correction": "accurate version based on latest data"
+  const screeningResponse = await openai.responses.create({
+    ...params,
+    instructions: INITIAL_SCREENING_PROMPT,
+    input: createScreeningInput(text),
+  });
+
+  const screeningContent = screeningResponse.output_text;
+
+  if (!screeningContent) {
+    throw new ProcessingError(ERROR_MESSAGES.NO_SCREENING_RESPONSE);
   }
-]
 
-CRITICAL RULES:
-- If text contains NO inaccuracies, return: []
-- Return ONLY valid JSON, no markdown, no explanations, no extra text
-- Extract claims EXACTLY as they appear (copy-paste precision)
-- Be thorough - don't miss obvious falsehoods
-- Support all languages equally well
-- Use the web search results to verify current facts`;
+  logger.debug('Screening response received', {
+    outputLength: screeningContent.length
+  });
 
+  const parsedClaims = safeJsonParse<unknown[]>(screeningContent.trim());
+
+  if (!parsedClaims) {
+    throw new ProcessingError('Failed to parse screening response as JSON', {
+      content: screeningContent.substring(0, 200),
+    });
+  }
+
+  const validatedClaims = validateClaimsToVerify(parsedClaims);
+
+  if (validatedClaims.length === 0) {
+    logger.info('No claims identified for verification');
+    return [];
+  }
+
+  logger.info('Claims identified for verification', {
+    count: validatedClaims.length,
+    claims: validatedClaims.map(c => c.claim)
+  });
+
+  return validatedClaims;
+}
+
+/**
+ * Searches the web for all claims in parallel
+ * Returns array of search results corresponding to each claim
+ */
+async function searchForClaims(claims: ClaimToVerify[]): Promise<Source[][]> {
+  logger.info('Step 2: Searching web for verification', { claimCount: claims.length });
+
+  const searchPromises = claims.map(({ claim }) =>
+    searchWeb(claim).catch((error) => {
+      logger.warn('Search failed for claim, continuing with empty results', { claim, error });
+      return [];
+    })
+  );
+
+  const allSearchResults = await Promise.all(searchPromises);
+
+  logger.debug('Web search completed', {
+    claims: claims.map((claim, idx) => ({
+      claim: claim.claim,
+      resultCount: allSearchResults[idx].length,
+    })),
+  });
+
+  return allSearchResults;
+}
+
+/**
+ * Verifies a single claim using OpenAI and search results
+ */
+async function verifyClaim(
+  openai: OpenAI,
+  claim: ClaimToVerify,
+  searchResults: Source[],
+  modelName: string,
+  originalText: string,
+  claimIndex: number,
+  totalClaims: number
+): Promise<FactCheck[]> {
+  logger.debug('Processing claim', {
+    index: claimIndex + 1,
+    total: totalClaims,
+    claim: claim.claim,
+    searchResultCount: searchResults.length,
+  });
+
+  if (searchResults.length === 0) {
+    logger.warn('No search results available for claim, skipping', { claim: claim.claim });
+    return [];
+  }
+
+  const webContext = formatSearchResults(searchResults);
+  const params = createOpenAIParams(modelName, OPENAI_CONFIG.VERIFICATION_EFFORT);
+
+  const verificationResponse = await openai.responses.create({
+    ...params,
+    instructions: createVerificationPrompt(webContext),
+    input: createVerificationInput(claim.claim),
+  });
+
+  const verificationContent = verificationResponse.output_text;
+
+  if (!verificationContent) {
+    logger.warn('No verification response received, skipping claim', { claim: claim.claim });
+    return [];
+  }
+
+  logger.debug('Verification response received', {
+    claim: claim.claim,
+    outputLength: verificationContent.length,
+  });
+
+  const parsedVerification = safeJsonParse<Array<Omit<FactCheck, 'start' | 'end' | 'sources'>>>(
+    verificationContent.trim()
+  );
+
+  if (!parsedVerification || !Array.isArray(parsedVerification)) {
+    logger.warn('Failed to parse verification response, skipping claim', {
+      claim: claim.claim,
+      content: verificationContent.substring(0, 200),
+    });
+    return [];
+  }
+
+  if (parsedVerification.length === 0) {
+    logger.debug('No issues found for claim', { claim: claim.claim });
+    return [];
+  }
+
+  // Map verification results to FactCheck objects with position information
+  const factChecks = parsedVerification.map((check) => {
+    const position = calculateClaimPosition(originalText, check.claim);
+    return {
+      ...check,
+      ...position,
+      sources: searchResults,
+    };
+  });
+
+  logger.info('Verification complete for claim', {
+    claim: claim.claim,
+    issuesFound: factChecks.length,
+  });
+
+  return factChecks;
+}
+
+/**
+ * Verifies all claims with their respective search results
+ */
+async function verifyAllClaims(
+  openai: OpenAI,
+  claims: ClaimToVerify[],
+  searchResults: Source[][],
+  modelName: string,
+  originalText: string
+): Promise<FactCheck[]> {
+  logger.info('Step 3: Verifying claims with search results', { claimCount: claims.length });
+
+  const verificationPromises = claims.map((claim, index) =>
+    verifyClaim(
+      openai,
+      claim,
+      searchResults[index],
+      modelName,
+      originalText,
+      index,
+      claims.length
+    )
+  );
+
+  const allFactChecks = await Promise.all(verificationPromises);
+
+  // Flatten array of arrays into single array
+  const flattenedFactChecks = allFactChecks.flat();
+
+  logger.info('Verification complete', { inaccurateClaimsFound: flattenedFactChecks.length });
+
+  return flattenedFactChecks;
+}
+
+/**
+ * Main fact-checking function that orchestrates the entire process
+ * @param text - The text to fact-check
+ * @returns Array of fact-check results for inaccurate claims
+ * @throws {AppError} If the fact-checking process fails
+ */
 export async function checkFacts(text: string): Promise<FactCheck[]> {
   try {
-    // Step 1: Perform web search to get current information
-    console.log('Performing web search for fact verification...');
-    const searchResults = await searchWeb(text.substring(0, 500)); // Search with first 500 chars as query
+    const openai = createOpenAIClient();
+    const modelName = getOpenAIModel(OPENAI_CONFIG.DEFAULT_MODEL);
 
-    // Format web search results for the prompt
-    let webContext = '';
-    if (searchResults.length > 0) {
-      webContext = searchResults
-        .map((source, i) => `[${i + 1}] ${source.title}\nURL: ${source.url}\n${source.snippet || ''}\n`)
-        .join('\n');
-      console.log(`Found ${searchResults.length} web sources`);
-    } else {
-      console.log('No web sources found, proceeding with LLM knowledge only');
-    }
-
-    // Step 2: Use LLM to fact-check with web context
-    const modelName = process.env.OPENAI_MODEL || 'gpt-4o';
-
-    // Handle different token parameter names for different model families
-    // o1 models and gpt-5 models use max_completion_tokens instead of max_tokens
-    const usesCompletionTokens = modelName.startsWith('o1') || modelName.startsWith('gpt-5');
-    const tokenParams = usesCompletionTokens
-      ? { max_completion_tokens: 3000 }
-      : { max_tokens: 3000 };
-
-    // o1 and gpt-5 models don't support custom temperature, they only use default (1)
-    const temperatureParam = usesCompletionTokens ? {} : { temperature: 0.2 };
-
-    const response = await openai.chat.completions.create({
+    logger.info('Starting fact-check process', {
+      textLength: text.length,
       model: modelName,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT_WITH_CONTEXT(webContext) },
-        { role: 'user', content: `Carefully analyze this text and identify ALL factually incorrect claims:\n\n${text}` },
-      ],
-      ...temperatureParam,
-      ...tokenParams,
     });
 
-    const content = response.choices[0]?.message?.content;
+    // Step 1: Identify claims that need verification
+    const claimsToVerify = await performInitialScreening(openai, text, modelName);
 
-    if (!content) {
-      throw new Error('No response from OpenAI');
+    if (claimsToVerify.length === 0) {
+      return [];
     }
 
-    // Parse the JSON response
-    let rawFactChecks: Omit<FactCheck, 'start' | 'end' | 'sources'>[] = JSON.parse(content.trim());
+    // Step 2: Search web for each claim
+    const allSearchResults = await searchForClaims(claimsToVerify);
 
-    // Validate the response structure
-    if (!Array.isArray(rawFactChecks)) {
-      throw new Error('Invalid response format');
-    }
-
-    // Find the start and end positions for each claim in the original text
-    const factChecks: FactCheck[] = rawFactChecks.map((check) => {
-      const claimIndex = text.indexOf(check.claim);
-
-      if (claimIndex === -1) {
-        // If exact match not found, try to find a close match
-        console.warn(`Could not find exact match for claim: "${check.claim}"`);
-        return {
-          ...check,
-          start: 0,
-          end: check.claim.length,
-          sources: searchResults.length > 0 ? searchResults : undefined,
-        };
-      }
-
-      return {
-        ...check,
-        start: claimIndex,
-        end: claimIndex + check.claim.length,
-        sources: searchResults.length > 0 ? searchResults : undefined,
-      };
-    });
+    // Step 3: Verify each claim with its search results
+    const factChecks = await verifyAllClaims(
+      openai,
+      claimsToVerify,
+      allSearchResults,
+      modelName,
+      text
+    );
 
     return factChecks;
   } catch (error) {
-    console.error('Error checking facts:', error);
-    throw new Error('Failed to check facts. Please try again.');
+    logger.error('Error checking facts', error);
+
+    // Convert to AppError and re-throw
+    throw toAppError(error, ERROR_MESSAGES.FACT_CHECK_FAILED);
   }
 }

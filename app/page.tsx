@@ -78,7 +78,7 @@ export default function Home() {
                 </li>
                 <li className="flex gap-2">
                   <span className="font-semibold text-blue-600">2.</span>
-                  <span>Click "Check Facts" to analyze the content</span>
+                  <span>Click &quot;Check Facts&quot; to analyze the content</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="font-semibold text-blue-600">3.</span>
