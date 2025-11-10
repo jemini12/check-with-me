@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import TextInput from './components/TextInput';
 import HighlightedText from './components/HighlightedText';
+import ExampleChecks from './components/ExampleChecks';
 import { FactCheckResponse } from './lib/types';
 
 // Loading skeleton component
@@ -66,53 +67,74 @@ export default function Home() {
     setError(null);
   };
 
+  const handleCheckExample = (cachedResult: FactCheckResponse) => {
+    setError(null);
+    setResult(cachedResult);
+    setLastCheckedText(cachedResult.original_text);
+    // Scroll to results
+    setTimeout(() => {
+      const resultsElement = document.getElementById('results-section');
+      if (resultsElement) {
+        resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
+
   return (
     <main id="main-content" className="min-h-screen bg-white py-8 sm:py-12 px-4">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <header className="mb-12">
           <h1 className="text-4xl font-bold text-black mb-2">
             Fact Checker
           </h1>
         </header>
 
-        <TextInput onCheckFacts={handleCheckFacts} isLoading={isLoading} />
+        {/* Input Section */}
+        <div className="max-w-3xl mx-auto">
+          <TextInput onCheckFacts={handleCheckFacts} isLoading={isLoading} />
 
-        {error && (
-          <div
-            className="mt-6 p-4 border border-gray-200 rounded"
-            role="alert"
-            aria-live="assertive"
-          >
-            <p className="text-sm text-gray-900 mb-3">{error}</p>
-            <div className="flex gap-2">
-              <button
-                onClick={handleRetry}
-                className="px-3 py-1.5 text-sm bg-black text-white rounded hover:bg-gray-800"
-                aria-label="Retry fact-check"
-              >
-                Retry
-              </button>
-              <button
-                onClick={handleClearError}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50"
-                aria-label="Close error message"
-              >
-                Close
-              </button>
+          {error && (
+            <div
+              className="mt-6 p-4 border border-gray-200 rounded"
+              role="alert"
+              aria-live="assertive"
+            >
+              <p className="text-sm text-gray-900 mb-3">{error}</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleRetry}
+                  className="px-3 py-1.5 text-sm bg-black text-white rounded hover:bg-gray-800"
+                  aria-label="Retry fact-check"
+                >
+                  Retry
+                </button>
+                <button
+                  onClick={handleClearError}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                  aria-label="Close error message"
+                >
+                  Close
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {isLoading && <LoadingSkeleton />}
+          {isLoading && <LoadingSkeleton />}
 
-        {result && !isLoading && (
-          <div className="mt-8 animate-slide-up">
-            <HighlightedText
-              text={result.original_text}
-              factChecks={result.fact_checks}
-            />
-          </div>
-        )}
+          {result && !isLoading && (
+            <div id="results-section" className="mt-8 animate-slide-up">
+              <HighlightedText
+                text={result.original_text}
+                factChecks={result.fact_checks}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Examples Section */}
+        <div className="mt-16">
+          <ExampleChecks onCheckExample={handleCheckExample} />
+        </div>
 
       </div>
     </main>
