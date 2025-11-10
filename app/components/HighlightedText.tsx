@@ -47,45 +47,46 @@ export default function HighlightedText({ text, factChecks }: HighlightedTextPro
     });
   }
 
-  const getHighlightColor = (confidence: number) => {
-    if (confidence >= 0.9) return 'bg-red-200 hover:bg-red-300';
-    if (confidence >= 0.8) return 'bg-orange-200 hover:bg-orange-300';
-    return 'bg-yellow-200 hover:bg-yellow-300';
+  const getHighlightColor = (isAccurate: boolean, confidence: number) => {
+    if (isAccurate) {
+      // Green for accurate claims
+      if (confidence >= 0.95) return 'bg-green-200 hover:bg-green-300';
+      if (confidence >= 0.9) return 'bg-green-100 hover:bg-green-200';
+      return 'bg-green-50 hover:bg-green-100';
+    } else {
+      // Red for inaccurate claims
+      if (confidence >= 0.95) return 'bg-red-200 hover:bg-red-300';
+      if (confidence >= 0.9) return 'bg-red-100 hover:bg-red-200';
+      return 'bg-red-50 hover:bg-red-100';
+    }
+  };
+
+  const getBorderColor = (isAccurate: boolean) => {
+    return isAccurate ? 'border-green-400' : 'border-red-400';
   };
 
   if (factChecks.length === 0) {
     return (
-      <div className="w-full max-w-4xl mx-auto p-6 bg-green-50 border border-green-200 rounded-lg">
-        <div className="flex items-center gap-2 text-green-800">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="font-medium">No factual issues detected!</p>
-        </div>
-        <p className="mt-2 text-sm text-green-700">The text appears to be factually accurate based on available information.</p>
+      <div className="w-full p-4 border border-gray-200 rounded">
+        <p className="text-sm text-gray-900">No verifiable claims found with sufficient consensus from sources.</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-4">
-      <div className="p-6 bg-white border border-gray-200 rounded-lg">
-        <h3 className="text-lg font-semibold mb-4 text-gray-800">Results</h3>
-        <div className="text-gray-800 leading-relaxed whitespace-pre-wrap">
+    <div className="w-full space-y-4">
+      <div className="p-6 border border-gray-200 rounded">
+        <div className="text-gray-900 leading-relaxed whitespace-pre-wrap">
           {segments.map((segment, index) => {
             if (segment.factCheck) {
               return (
                 <span
                   key={index}
-                  className={`${getHighlightColor(segment.factCheck.confidence)} cursor-pointer transition-colors rounded px-1 relative group`}
+                  className={`${getHighlightColor(segment.factCheck.is_accurate, segment.factCheck.confidence)} cursor-pointer border-b-2 ${getBorderColor(segment.factCheck.is_accurate)}`}
                   onClick={() => setSelectedFactCheck(segment.factCheck!)}
                   title={segment.factCheck.reason}
                 >
                   {segment.text}
-                  <span className="invisible group-hover:visible absolute left-0 top-full mt-2 w-80 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg z-10 whitespace-normal">
-                    <strong className="block mb-1">Why this is flagged:</strong>
-                    {segment.factCheck.reason}
-                  </span>
                 </span>
               );
             }
@@ -94,32 +95,36 @@ export default function HighlightedText({ text, factChecks }: HighlightedTextPro
         </div>
       </div>
 
-      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <h4 className="font-medium text-blue-900 mb-2">Legend</h4>
-        <div className="space-y-1 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-4 h-4 bg-red-200 rounded"></span>
-            <span className="text-gray-700">High confidence (90%+) - Likely false</span>
+      <div className="p-4 border border-gray-200 rounded bg-gray-50">
+        <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3">Legend</p>
+        <div className="space-y-3 text-sm">
+          <div className="flex items-center gap-3">
+            <span className="inline-block w-4 h-4 bg-green-200 border-2 border-green-400 rounded"></span>
+            <div>
+              <span className="font-semibold text-green-700">Verified as Accurate</span>
+              <span className="text-gray-600"> - Confirmed by multiple sources</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-4 h-4 bg-orange-200 rounded"></span>
-            <span className="text-gray-700">Medium confidence (80-90%) - Possibly false</span>
+          <div className="flex items-center gap-3">
+            <span className="inline-block w-4 h-4 bg-red-200 border-2 border-red-400 rounded"></span>
+            <div>
+              <span className="font-semibold text-red-700">Flagged as False</span>
+              <span className="text-gray-600"> - Contradicted by multiple sources</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-4 h-4 bg-yellow-200 rounded"></span>
-            <span className="text-gray-700">Lower confidence (70-80%) - Questionable</span>
-          </div>
+          <p className="text-xs text-gray-500 mt-2 italic">Darker shading indicates higher confidence</p>
         </div>
       </div>
 
       {selectedFactCheck && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setSelectedFactCheck(null)}>
-          <div className="bg-white rounded-lg max-w-2xl w-full p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-xl font-semibold text-gray-900">Fact Check Details</h3>
+          <div className="bg-white rounded-lg max-w-2xl w-full p-8 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-6 pb-4 border-b border-gray-200">
+              <h3 className="text-2xl font-bold text-gray-900">Fact Check Details</h3>
               <button
                 onClick={() => setSelectedFactCheck(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors"
+                aria-label="Close"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -127,49 +132,72 @@ export default function HighlightedText({ text, factChecks }: HighlightedTextPro
               </button>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Claim</p>
-                <p className="text-gray-900 mt-1">{selectedFactCheck.claim}</p>
+            <div className="space-y-6">
+              <div className={`${selectedFactCheck.is_accurate ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-lg p-4`}>
+                <p className={`text-xs font-semibold ${selectedFactCheck.is_accurate ? 'text-green-600' : 'text-red-600'} uppercase tracking-wide mb-2`}>
+                  {selectedFactCheck.is_accurate ? 'Verified Claim' : 'Flagged Claim'}
+                </p>
+                <p className="text-base text-gray-900 leading-relaxed">{selectedFactCheck.claim}</p>
               </div>
 
-              <div>
-                <p className="text-sm font-medium text-gray-500">Confidence</p>
-                <p className="text-gray-900 mt-1">{(selectedFactCheck.confidence * 100).toFixed(0)}%</p>
+              <div className="flex items-center gap-3">
+                <div className="flex-shrink-0">
+                  <div className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-semibold ${
+                    selectedFactCheck.is_accurate
+                      ? 'bg-green-100 text-green-700 border border-green-300'
+                      : 'bg-red-100 text-red-700 border border-red-300'
+                  }`}>
+                    {(selectedFactCheck.confidence * 100).toFixed(0)}% confidence
+                  </div>
+                </div>
+                <p className="text-sm text-gray-500">
+                  {selectedFactCheck.is_accurate
+                    ? 'Confirmed by multiple sources'
+                    : 'Contradicted by multiple sources'}
+                </p>
               </div>
 
-              <div>
-                <p className="text-sm font-medium text-gray-500">Reason</p>
-                <p className="text-gray-900 mt-1">{selectedFactCheck.reason}</p>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Analysis</p>
+                <div className="prose prose-sm max-w-none">
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{selectedFactCheck.reason}</p>
+                </div>
               </div>
 
-              {selectedFactCheck.correction && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Correction</p>
-                  <p className="text-gray-900 mt-1">{selectedFactCheck.correction}</p>
+              {!selectedFactCheck.is_accurate && selectedFactCheck.correction && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">Correction</p>
+                  <p className="text-sm text-gray-900 leading-relaxed">{selectedFactCheck.correction}</p>
                 </div>
               )}
 
               {selectedFactCheck.sources && selectedFactCheck.sources.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium text-gray-500 mb-2">Sources</p>
-                  <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Sources</p>
+                  <div className="space-y-3">
                     {selectedFactCheck.sources.map((source, index) => (
                       <a
                         key={index}
                         href={source.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block p-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
+                        className="block p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
                       >
-                        <p className="text-sm font-medium text-blue-600 hover:underline">
-                          {source.title}
-                        </p>
-                        {source.snippet && (
-                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-                            {source.snippet}
-                          </p>
-                        )}
+                        <div className="flex items-start gap-2">
+                          <svg className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline">
+                              {source.title}
+                            </p>
+                            {source.snippet && (
+                              <p className="text-xs text-gray-600 mt-2 leading-relaxed">
+                                {source.snippet}
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       </a>
                     ))}
                   </div>
@@ -179,7 +207,7 @@ export default function HighlightedText({ text, factChecks }: HighlightedTextPro
 
             <button
               onClick={() => setSelectedFactCheck(null)}
-              className="mt-6 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="mt-8 w-full px-6 py-3 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors"
             >
               Close
             </button>

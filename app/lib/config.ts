@@ -5,10 +5,10 @@
 
 export const API_CONFIG = {
   /** Maximum character limit for text input */
-  MAX_TEXT_LENGTH: 10000,
+  MAX_TEXT_LENGTH: 1000,
 
   /** Maximum number of web search results to retrieve per claim */
-  MAX_SEARCH_RESULTS: 3,
+  MAX_SEARCH_RESULTS: 7,
 
   /** Web search depth level */
   SEARCH_DEPTH: 'basic' as const,
@@ -33,20 +33,20 @@ export const OPENAI_CONFIG = {
 
 export const CONFIDENCE_THRESHOLDS = {
   /** Minimum confidence to report a fact check */
-  MIN_CONFIDENCE: 0.7,
+  MIN_CONFIDENCE: 0.8,
 
-  /** High confidence threshold (red highlight) */
+  /** High confidence threshold */
   HIGH_CONFIDENCE: 0.9,
 
-  /** Medium confidence threshold (orange highlight) */
+  /** Medium confidence threshold */
   MEDIUM_CONFIDENCE: 0.8,
 } as const;
 
 export const ERROR_MESSAGES = {
-  INVALID_TEXT: 'Invalid request. Text is required.',
-  TEXT_TOO_LONG: `Text is too long. Maximum ${API_CONFIG.MAX_TEXT_LENGTH.toLocaleString()} characters.`,
-  PROCESSING_FAILED: 'Failed to process fact-check request.',
+  INVALID_TEXT: 'Invalid request. Please enter text.',
+  TEXT_TOO_LONG: `Text is too long. Maximum ${API_CONFIG.MAX_TEXT_LENGTH.toLocaleString()} characters allowed.`,
+  PROCESSING_FAILED: 'Fact-check processing failed.',
   NO_SCREENING_RESPONSE: 'No response from initial screening',
-  FACT_CHECK_FAILED: 'Failed to check facts. Please try again.',
-  TAVILY_NOT_CONFIGURED: 'Tavily API key not configured. Skipping web search.',
+  FACT_CHECK_FAILED: 'Fact-check failed. Please try again.',
+  TAVILY_NOT_CONFIGURED: 'Tavily API key is not configured. Skipping web search.',
 } as const;

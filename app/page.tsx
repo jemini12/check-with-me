@@ -5,15 +5,33 @@ import TextInput from './components/TextInput';
 import HighlightedText from './components/HighlightedText';
 import { FactCheckResponse } from './lib/types';
 
+// Loading skeleton component
+function LoadingSkeleton() {
+  return (
+    <div className="mt-8 space-y-4" role="status" aria-label="Loading fact-check results">
+      <div className="p-6 border border-gray-200 rounded">
+        <div className="space-y-3">
+          <div className="h-4 bg-gray-100 rounded w-full animate-pulse"></div>
+          <div className="h-4 bg-gray-100 rounded w-5/6 animate-pulse"></div>
+          <div className="h-4 bg-gray-100 rounded w-4/6 animate-pulse"></div>
+        </div>
+      </div>
+      <p className="sr-only">Analyzing text...</p>
+    </div>
+  );
+}
+
 export default function Home() {
   const [result, setResult] = useState<FactCheckResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastCheckedText, setLastCheckedText] = useState<string>('');
 
   const handleCheckFacts = async (text: string) => {
     setIsLoading(true);
     setError(null);
     setResult(null);
+    setLastCheckedText(text);
 
     try {
       const response = await fetch('/api/fact-check', {
@@ -26,7 +44,7 @@ export default function Home() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to check facts');
+        throw new Error(errorData.error || 'Fact-check failed');
       }
 
       const data: FactCheckResponse = await response.json();
@@ -38,28 +56,57 @@ export default function Home() {
     }
   };
 
+  const handleRetry = () => {
+    if (lastCheckedText) {
+      handleCheckFacts(lastCheckedText);
+    }
+  };
+
+  const handleClearError = () => {
+    setError(null);
+  };
+
   return (
-    <main className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-12 px-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">
+    <main id="main-content" className="min-h-screen bg-white py-8 sm:py-12 px-4">
+      <div className="max-w-3xl mx-auto">
+        <header className="mb-12">
+          <h1 className="text-4xl font-bold text-black mb-2">
             Fact Checker
           </h1>
-          <p className="text-lg text-gray-600">
-            Verify the accuracy of any text using AI-powered fact-checking
-          </p>
-        </div>
+        </header>
 
         <TextInput onCheckFacts={handleCheckFacts} isLoading={isLoading} />
 
         {error && (
-          <div className="mt-6 max-w-4xl mx-auto p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-800 font-medium">Error: {error}</p>
+          <div
+            className="mt-6 p-4 border border-gray-200 rounded"
+            role="alert"
+            aria-live="assertive"
+          >
+            <p className="text-sm text-gray-900 mb-3">{error}</p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleRetry}
+                className="px-3 py-1.5 text-sm bg-black text-white rounded hover:bg-gray-800"
+                aria-label="Retry fact-check"
+              >
+                Retry
+              </button>
+              <button
+                onClick={handleClearError}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                aria-label="Close error message"
+              >
+                Close
+              </button>
+            </div>
           </div>
         )}
 
-        {result && (
-          <div className="mt-8">
+        {isLoading && <LoadingSkeleton />}
+
+        {result && !isLoading && (
+          <div className="mt-8 animate-slide-up">
             <HighlightedText
               text={result.original_text}
               factChecks={result.fact_checks}
@@ -67,31 +114,6 @@ export default function Home() {
           </div>
         )}
 
-        {!result && !isLoading && (
-          <div className="mt-12 max-w-4xl mx-auto">
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-800 mb-3">How it works</h2>
-              <ol className="space-y-2 text-gray-600">
-                <li className="flex gap-2">
-                  <span className="font-semibold text-blue-600">1.</span>
-                  <span>Enter or paste any text you want to fact-check</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="font-semibold text-blue-600">2.</span>
-                  <span>Click &quot;Check Facts&quot; to analyze the content</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="font-semibold text-blue-600">3.</span>
-                  <span>Review highlighted claims that may be inaccurate</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="font-semibold text-blue-600">4.</span>
-                  <span>Click on highlights to see detailed explanations and corrections</span>
-                </li>
-              </ol>
-            </div>
-          </div>
-        )}
       </div>
     </main>
   );

@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { FactCheck, Source } from './types';
 import { searchWeb } from './web-search';
-import { OPENAI_CONFIG, ERROR_MESSAGES } from './config';
+import { OPENAI_CONFIG, ERROR_MESSAGES, CONFIDENCE_THRESHOLDS } from './config';
 import { getOpenAIApiKey, getOpenAIModel } from './env';
 import { logger } from './logger';
 import {
@@ -282,7 +282,18 @@ export async function checkFacts(text: string): Promise<FactCheck[]> {
       text
     );
 
-    return factChecks;
+    // Filter to show results with sufficient confidence (>= 0.8)
+    const filteredFactChecks = factChecks.filter(
+      check => check.confidence >= CONFIDENCE_THRESHOLDS.MIN_CONFIDENCE
+    );
+
+    logger.info('Filtered fact checks by confidence', {
+      totalChecks: factChecks.length,
+      filteredChecks: filteredFactChecks.length,
+      minConfidence: CONFIDENCE_THRESHOLDS.MIN_CONFIDENCE,
+    });
+
+    return filteredFactChecks;
   } catch (error) {
     logger.error('Error checking facts', error);
 
