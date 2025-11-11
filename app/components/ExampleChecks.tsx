@@ -15,7 +15,7 @@ interface TrendingPrompt {
   upvote_count: number;
 }
 
-const UPVOTES_STORAGE_KEY = 'fact-checker-upvotes';
+const UPVOTES_STORAGE_KEY = 'check-with-me-upvotes';
 
 export default function ExampleChecks({ onCheckExample }: ExampleChecksProps) {
   const [trendingPrompts, setTrendingPrompts] = useState<TrendingPrompt[]>([]);
