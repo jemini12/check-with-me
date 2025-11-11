@@ -1,6 +1,6 @@
 'use client';
 
-import { ExampleCheck } from '../lib/example-checks';
+import { ExampleCheck } from '../lib/types';
 
 interface ExampleCheckCardProps {
   example: ExampleCheck;

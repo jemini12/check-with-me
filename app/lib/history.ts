@@ -95,7 +95,7 @@ export async function getFromHistory(text: string): Promise<FactCheckResponse | 
     logger.info('Cache hit from history', { textHash });
     return data.result as FactCheckResponse;
   } catch (error) {
-    logger.debug('No cache hit from history', error);
+    logger.debug('No cache hit from history');
     return null;
   }
 }
