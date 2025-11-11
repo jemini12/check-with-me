@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import TextInput from './components/TextInput';
 import HighlightedText from './components/HighlightedText';
 import ExampleChecks from './components/ExampleChecks';
@@ -29,6 +29,31 @@ export default function Home() {
   const [lastCheckedText, setLastCheckedText] = useState<string>('');
   const [inputText, setInputText] = useState<string>('');
   const [pendingCachedResult, setPendingCachedResult] = useState<FactCheckResponse | null>(null);
+  const TITLE_TEXT = 'Verify claims.';
+  const [typedTitle, setTypedTitle] = useState('');
+  const [typingStarted, setTypingStarted] = useState(false);
+  const [showCaret, setShowCaret] = useState(true);
+
+  useEffect(() => {
+    setTypingStarted(true);
+    setTypedTitle('');
+    let index = 0;
+    const interval = window.setInterval(() => {
+      index += 1;
+      setTypedTitle(TITLE_TEXT.slice(0, index));
+      if (index >= TITLE_TEXT.length) {
+        clearInterval(interval);
+      }
+    }, 90);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const caretInterval = window.setInterval(() => {
+      setShowCaret(prev => !prev);
+    }, 550);
+    return () => clearInterval(caretInterval);
+  }, []);
 
   const handleCheckFacts = async (text: string) => {
     setIsLoading(true);
@@ -89,8 +114,16 @@ export default function Home() {
     <main id="main-content" className="min-h-screen bg-white py-10 px-4">
       <div className="max-w-6xl mx-auto">
         <header className="mb-12">
-          <h1 className="text-4xl sm:text-5xl font-semibold text-gray-900">
-            Verify Claims.
+          <h1 className="text-4xl sm:text-5xl font-semibold text-gray-900 flex items-center" suppressHydrationWarning>
+            {typingStarted ? typedTitle : TITLE_TEXT}
+            {typingStarted && (
+              <span
+                aria-hidden="true"
+                className={`ml-1 h-8 w-0.5 bg-gray-900 transition-opacity ${
+                  showCaret ? 'opacity-100' : 'opacity-0'
+                }`}
+              />
+            )}
           </h1>
         </header>
 

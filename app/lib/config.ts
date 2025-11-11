@@ -28,7 +28,7 @@ export const OPENAI_CONFIG = {
   SCREENING_EFFORT: 'medium' as const,
 
   /** Reasoning effort level for verification */
-  VERIFICATION_EFFORT: 'high' as const,
+  VERIFICATION_EFFORT: 'medium' as const,
 } as const;
 
 export const CONFIDENCE_THRESHOLDS = {

@@ -343,6 +343,7 @@ export const EXAMPLE_CHECKS: ExampleCheck[] = [
   }
 ];
 
+
 /**
  * Get example check by ID
  */

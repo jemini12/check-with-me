@@ -21,30 +21,27 @@ export default function HighlightedText({ text, factChecks }: HighlightedTextPro
 
   // Split text into segments with and without highlights
   const segments: TextSegment[] = [];
-  let lastIndex = 0;
+  let cursor = 0;
 
   sortedFactChecks.forEach((factCheck) => {
-    // Add text before the fact check
-    if (factCheck.start > lastIndex) {
-      segments.push({
-        text: text.slice(lastIndex, factCheck.start),
-      });
+    const start = Math.max(factCheck.start, cursor);
+    const end = Math.min(Math.max(factCheck.end, start), text.length);
+
+    if (start > cursor) {
+      segments.push({ text: text.slice(cursor, start) });
     }
 
-    // Add the fact check segment
-    segments.push({
-      text: text.slice(factCheck.start, factCheck.end),
-      factCheck,
-    });
-
-    lastIndex = factCheck.end;
+    if (end > start) {
+      segments.push({
+        text: text.slice(start, end),
+        factCheck,
+      });
+      cursor = end;
+    }
   });
 
-  // Add remaining text
-  if (lastIndex < text.length) {
-    segments.push({
-      text: text.slice(lastIndex),
-    });
+  if (cursor < text.length) {
+    segments.push({ text: text.slice(cursor) });
   }
 
   const getHighlightColor = (isAccurate: boolean, confidence: number) => {
