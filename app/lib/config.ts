@@ -19,7 +19,7 @@ export const API_CONFIG = {
 
 export const OPENAI_CONFIG = {
   /** Default model to use for fact-checking */
-  DEFAULT_MODEL: 'gpt-5',
+  DEFAULT_MODEL: 'gpt-5-nano' as const,
 
   /** Maximum output tokens for OpenAI API calls */
   MAX_OUTPUT_TOKENS: 8000,
@@ -28,7 +28,7 @@ export const OPENAI_CONFIG = {
   SCREENING_EFFORT: 'medium' as const,
 
   /** Reasoning effort level for verification */
-  VERIFICATION_EFFORT: 'medium' as const,
+  VERIFICATION_EFFORT: 'low' as const,
 } as const;
 
 export const CONFIDENCE_THRESHOLDS = {

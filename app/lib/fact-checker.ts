@@ -70,11 +70,14 @@ async function performInitialScreening(
   logger.info('Step 1: Identifying claims that need verification');
 
   const params = createOpenAIParams(modelName, OPENAI_CONFIG.SCREENING_EFFORT);
+  const screeningInput = createScreeningInput(text);
+
+  logger.debug('Screening input', { input: screeningInput });
 
   const screeningResponse = await openai.responses.create({
     ...params,
     instructions: INITIAL_SCREENING_PROMPT,
-    input: createScreeningInput(text),
+    input: screeningInput,
   });
 
   const screeningContent = screeningResponse.output_text;
@@ -120,6 +123,8 @@ async function performInitialScreening(
 async function searchForClaims(claims: ClaimToVerify[]): Promise<Source[][]> {
   const stepStart = Date.now();
   logger.info('Step 2: Searching web for verification', { claimCount: claims.length });
+
+  logger.debug('Search queries', { claims: claims.map(c => c.claim) });
 
   const searchPromises = claims.map(({ claim }) =>
     searchWeb(claim).catch((error) => {
@@ -168,6 +173,7 @@ async function verifyClaim(
 
   const webContext = formatSearchResults(searchResults);
   const params = createOpenAIParams(modelName, OPENAI_CONFIG.VERIFICATION_EFFORT);
+  const verificationInput = createVerificationInput(claim.claim);
 
   logger.debug('Calling OpenAI verification API', {
     claim: claim.claim,
@@ -178,10 +184,16 @@ async function verifyClaim(
     webContextLength: webContext.length,
   });
 
+  logger.debug('Verification input', {
+    claim: claim.claim,
+    input: verificationInput,
+    webContext: webContext,
+  });
+
   const verificationResponse = await openai.responses.create({
     ...params,
     instructions: createVerificationPrompt(webContext),
-    input: createVerificationInput(claim.claim),
+    input: verificationInput,
   });
 
   logger.debug('OpenAI verification response received', {

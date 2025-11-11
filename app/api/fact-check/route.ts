@@ -120,11 +120,16 @@ async function analyzeSantaText(text: string): Promise<SantaSentiment> {
       messages: [
         { role: 'user', content: `${SANTA_SENTIMENT_PROMPT}\n\nText: "${text}"\n\nJSON:` }
       ],
-      max_completion_tokens: 100,
+      max_completion_tokens: 1000, // High limit for reasoning models to ensure JSON output
     });
 
     const content = response.choices[0]?.message?.content?.trim();
-    logger.info('Santa sentiment analysis result', { text, rawContent: content });
+    logger.info('Santa sentiment analysis result', {
+      text,
+      rawContent: content,
+      usage: response.usage,
+      finishReason: response.choices[0]?.finish_reason,
+    });
 
     // Try to parse JSON
     if (content) {
@@ -157,15 +162,33 @@ async function generateSantaAnswer(text: string, sentiment: SantaSentiment): Pro
       apiKey: getOpenAIApiKey(),
     });
 
-    // Build context-aware prompt
+    // Build context-aware prompt with variety
     let contextPrompt = SANTA_QA_PROMPT;
 
     if (sentiment.type === 'negative_statement') {
-      contextPrompt += '\n\nCONTEXT: The user incorrectly said Santa doesn\'t exist. Gently correct them and reassure them that Santa is real.';
+      // Vary the correction approach for creativity
+      const corrections = [
+        'The user incorrectly said Santa doesn\'t exist. Gently correct them with a sprinkle of Christmas magic and reassure them that Santa is wonderfully real.',
+        'The user doubts Santa\'s existence. Share a magical detail that proves Santa is real - maybe mention the North Pole, reindeer tracks, or Christmas morning miracles.',
+        'The user thinks Santa isn\'t real. Warmly and creatively reassure them that Santa absolutely exists, adding enchanting details that bring the magic to life.',
+      ];
+      contextPrompt += '\n\nCONTEXT: ' + corrections[Math.floor(Math.random() * corrections.length)];
     } else if (sentiment.type === 'positive_statement') {
-      contextPrompt += '\n\nCONTEXT: The user correctly said Santa is real. Affirm their belief warmly.';
+      // Vary the affirmation style
+      const affirmations = [
+        'The user correctly believes Santa is real. Affirm their belief warmly with extra magical details.',
+        'The user knows Santa exists! Celebrate their belief with an enchanting detail about Santa\'s world.',
+        'The user is right about Santa! Add a sprinkle of Christmas magic to your affirmation.',
+      ];
+      contextPrompt += '\n\nCONTEXT: ' + affirmations[Math.floor(Math.random() * affirmations.length)];
     } else {
-      contextPrompt += '\n\nCONTEXT: The user is asking a question about Santa. Provide a helpful, magical answer.';
+      // Vary the question response approach
+      const approaches = [
+        'The user is asking a question about Santa. Answer with magical details and wonder.',
+        'The user wants to know more about Santa. Share an enchanting answer filled with Christmas spirit.',
+        'The user is curious about Santa. Provide a creative, magical answer that brings joy.',
+      ];
+      contextPrompt += '\n\nCONTEXT: ' + approaches[Math.floor(Math.random() * approaches.length)];
     }
 
     const response = await openai.chat.completions.create({
@@ -174,11 +197,18 @@ async function generateSantaAnswer(text: string, sentiment: SantaSentiment): Pro
         { role: 'system', content: contextPrompt },
         { role: 'user', content: createSantaQAInput(text) }
       ],
-      max_completion_tokens: 200,
+      max_completion_tokens: 2000, // High limit for reasoning models (gpt-5-nano uses ~500 reasoning + answer)
+      // Note: gpt-5 only supports default temperature (1.0)
     });
 
     const answer = response.choices[0]?.message?.content?.trim() || "Santa really exists! 🎅";
-    logger.info('Santa answer generated', { answer, sentiment });
+    logger.info('Santa answer generated', {
+      answer,
+      sentiment,
+      usage: response.usage,
+      finishReason: response.choices[0]?.finish_reason,
+      isFallback: !response.choices[0]?.message?.content,
+    });
 
     return answer;
   } catch (error) {
@@ -206,7 +236,9 @@ async function createSantaResponse(text: string): Promise<FactCheckResponse> {
   if (sentiment.type === 'negative_statement') {
     // User claims Santa doesn't exist → FALSE
     is_accurate = false;
-    correction = 'Santa is real and lives at the North Pole with his elves!';
+    // Note: correction set to null because the 'reason' field already contains
+    // the full kid-friendly correction in the user's language
+    correction = null;
     logger.info('Marking as inaccurate (negative statement about Santa)', { text });
   } else {
     // Positive statements or questions → TRUE
