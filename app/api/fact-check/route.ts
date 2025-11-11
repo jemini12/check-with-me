@@ -8,6 +8,7 @@ import { isAppError, ValidationError, getErrorMessage } from '../../lib/errors';
 import { ERROR_MESSAGES, OPENAI_CONFIG } from '../../lib/config';
 import { SANTA_DETECTION_PROMPT, SANTA_SENTIMENT_PROMPT, SANTA_QA_PROMPT, createSantaQAInput } from '../../lib/prompts';
 import { getOpenAIApiKey, getOpenAIModel } from '../../lib/env';
+import { logFactCheck, getFromHistory, generateSessionId, hashIp } from '../../lib/history';
 
 /**
  * Creates an error response with appropriate status code
@@ -269,13 +270,41 @@ async function createSantaResponse(text: string): Promise<FactCheckResponse> {
  * Validates input, performs fact-checking, and returns results
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const startTime = Date.now();
+  let text = '';
+
+  // Get client info for logging
+  const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip');
+  const userAgent = request.headers.get('user-agent');
+  const sessionId = generateSessionId(ip, userAgent);
+  const ipHash = hashIp(ip);
+
   try {
     logger.info('Received fact-check request');
 
     // Parse and validate request
-    const text = await parseAndValidateRequest(request);
+    text = await parseAndValidateRequest(request);
 
     logger.debug('Request validated', { textLength: text.length });
+
+    // Check cache from history first
+    const cachedResult = await getFromHistory(text);
+    if (cachedResult) {
+      const responseTimeMs = Date.now() - startTime;
+      logger.info('Returning cached result from history', { responseTimeMs });
+
+      // Still log the cache hit
+      await logFactCheck({
+        originalText: text,
+        result: cachedResult,
+        responseTimeMs,
+        sessionId,
+        ipHash: ipHash || undefined,
+        userAgent: userAgent || undefined,
+      });
+
+      return NextResponse.json(cachedResult);
+    }
 
     // Easter egg: Use LLM to detect Santa queries (any language, kid-friendly AI response, skips web search)
     logger.info('Starting Santa detection check...');
@@ -286,6 +315,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       logger.info('🎅 Santa easter egg triggered - generating kid-friendly answer in same language, no web search');
       const santaResponse = await createSantaResponse(text);
       logger.info('Santa response created successfully');
+
+      const responseTimeMs = Date.now() - startTime;
+
+      // Log santa response
+      await logFactCheck({
+        originalText: text,
+        result: santaResponse,
+        responseTimeMs,
+        sessionId,
+        ipHash: ipHash || undefined,
+        userAgent: userAgent || undefined,
+      });
+
       return NextResponse.json(santaResponse);
     }
 
@@ -300,13 +342,42 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       fact_checks: factChecks,
     };
 
+    const responseTimeMs = Date.now() - startTime;
+
     logger.info('Fact-check request completed successfully', {
       textLength: text.length,
       factChecksFound: factChecks.length,
+      responseTimeMs,
+    });
+
+    // Log to history
+    await logFactCheck({
+      originalText: text,
+      result: response,
+      responseTimeMs,
+      sessionId,
+      ipHash: ipHash || undefined,
+      userAgent: userAgent || undefined,
     });
 
     return NextResponse.json(response);
   } catch (error) {
+    const responseTimeMs = Date.now() - startTime;
+
+    // Log error to history if we have the text
+    if (text) {
+      await logFactCheck({
+        originalText: text,
+        result: { original_text: text, fact_checks: [] },
+        responseTimeMs,
+        sessionId,
+        ipHash: ipHash || undefined,
+        userAgent: userAgent || undefined,
+        isError: true,
+        errorMessage: getErrorMessage(error),
+      });
+    }
+
     return createErrorResponse(error);
   }
 }

@@ -2,18 +2,26 @@
 
 import { useState, useEffect } from 'react';
 import ExampleCheckCard from './ExampleCheckCard';
-import { EXAMPLE_CHECKS } from '../lib/example-checks';
 import { FactCheckResponse } from '../lib/types';
 
 interface ExampleChecksProps {
   onCheckExample: (result: FactCheckResponse) => void;
 }
 
+interface TrendingPrompt {
+  id: string;
+  prompt: string;
+  cached_result: FactCheckResponse;
+  upvote_count: number;
+}
+
 const UPVOTES_STORAGE_KEY = 'fact-checker-upvotes';
 
 export default function ExampleChecks({ onCheckExample }: ExampleChecksProps) {
+  const [trendingPrompts, setTrendingPrompts] = useState<TrendingPrompt[]>([]);
   const [upvotes, setUpvotes] = useState<Record<string, boolean>>({});
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Load upvotes from localStorage on mount
   useEffect(() => {
@@ -28,6 +36,26 @@ export default function ExampleChecks({ onCheckExample }: ExampleChecksProps) {
     }
   }, []);
 
+  // Fetch trending prompts from API
+  useEffect(() => {
+    const fetchTrendingPrompts = async () => {
+      try {
+        const response = await fetch('/api/trending');
+        if (!response.ok) {
+          throw new Error('Failed to fetch trending prompts');
+        }
+        const { data } = await response.json();
+        setTrendingPrompts(data);
+      } catch (error) {
+        console.error('Error fetching trending prompts:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTrendingPrompts();
+  }, []);
+
   // Save upvotes to localStorage when they change
   useEffect(() => {
     if (mounted) {
@@ -35,25 +63,61 @@ export default function ExampleChecks({ onCheckExample }: ExampleChecksProps) {
     }
   }, [upvotes, mounted]);
 
-  // Toggle upvote for an example
-  const handleUpvote = (exampleId: string) => {
+  // Toggle upvote for an example and update database
+  const handleUpvote = async (promptId: string) => {
+    const wasUpvoted = upvotes[promptId];
+
+    // Optimistic UI update
     setUpvotes(prev => ({
       ...prev,
-      [exampleId]: !prev[exampleId]
+      [promptId]: !prev[promptId]
     }));
+
+    // Only call API if not already upvoted (prevent multiple upvotes)
+    if (!wasUpvoted) {
+      try {
+        const response = await fetch(`/api/trending/${promptId}/upvote`, {
+          method: 'POST',
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to upvote');
+        }
+
+        const { upvote_count } = await response.json();
+
+        // Update local state with new count
+        setTrendingPrompts(prev =>
+          prev.map(p =>
+            p.id === promptId ? { ...p, upvote_count } : p
+          )
+        );
+      } catch (error) {
+        console.error('Error upvoting prompt:', error);
+        // Revert on error
+        setUpvotes(prev => ({
+          ...prev,
+          [promptId]: wasUpvoted
+        }));
+      }
+    }
   };
 
-  // Calculate upvote count for an example
-  const getUpvoteCount = (exampleId: string, initialCount: number): number => {
-    return initialCount + (upvotes[exampleId] ? 1 : 0);
+  // Calculate upvote count for display
+  const getUpvoteCount = (promptId: string, baseCount: number): number => {
+    return baseCount + (upvotes[promptId] ? 1 : 0);
   };
 
-  // Sort by upvote count (highest first)
-  const sortedExamples = [...EXAMPLE_CHECKS].sort((a, b) => {
-    const aCount = getUpvoteCount(a.id, a.initialUpvotes);
-    const bCount = getUpvoteCount(b.id, b.initialUpvotes);
-    return bCount - aCount;
-  });
+  if (loading) {
+    return (
+      <section className="w-full space-y-4">
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900">Trendings</h2>
+        </div>
+        <div className="text-center py-8 text-gray-500">Loading trending prompts...</div>
+      </section>
+    );
+  }
 
   return (
     <section className="w-full space-y-4">
@@ -63,18 +127,28 @@ export default function ExampleChecks({ onCheckExample }: ExampleChecksProps) {
       </div>
 
       {/* Examples Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sortedExamples.map(example => (
-          <ExampleCheckCard
-            key={example.id}
-            example={example}
-            upvoteCount={getUpvoteCount(example.id, example.initialUpvotes)}
-            isUpvoted={upvotes[example.id] || false}
-            onUpvote={() => handleUpvote(example.id)}
-            onCheck={() => onCheckExample(example.cachedResult)}
-          />
-        ))}
-      </div>
+      {trendingPrompts.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">No trending prompts yet</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {trendingPrompts.map(prompt => (
+            <ExampleCheckCard
+              key={prompt.id}
+              example={{
+                id: prompt.id,
+                prompt: prompt.prompt,
+                category: 'science', // placeholder, not used
+                cachedResult: prompt.cached_result,
+                initialUpvotes: prompt.upvote_count
+              }}
+              upvoteCount={getUpvoteCount(prompt.id, prompt.upvote_count)}
+              isUpvoted={upvotes[prompt.id] || false}
+              onUpvote={() => handleUpvote(prompt.id)}
+              onCheck={() => onCheckExample(prompt.cached_result)}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
