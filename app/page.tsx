@@ -27,12 +27,21 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastCheckedText, setLastCheckedText] = useState<string>('');
+  const [inputText, setInputText] = useState<string>('');
+  const [pendingCachedResult, setPendingCachedResult] = useState<FactCheckResponse | null>(null);
 
   const handleCheckFacts = async (text: string) => {
     setIsLoading(true);
     setError(null);
     setResult(null);
     setLastCheckedText(text);
+
+    if (pendingCachedResult && pendingCachedResult.original_text === text) {
+      setResult(pendingCachedResult);
+      setPendingCachedResult(null);
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch('/api/fact-check', {
@@ -69,29 +78,35 @@ export default function Home() {
 
   const handleCheckExample = (cachedResult: FactCheckResponse) => {
     setError(null);
-    setResult(cachedResult);
-    setLastCheckedText(cachedResult.original_text);
-    // Scroll to results
-    setTimeout(() => {
-      const resultsElement = document.getElementById('results-section');
-      if (resultsElement) {
-        resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 100);
+    setResult(null);
+    setPendingCachedResult(cachedResult);
+    setInputText(cachedResult.original_text);
+    const inputElement = document.getElementById('text-input') as HTMLTextAreaElement | null;
+    inputElement?.focus();
   };
 
   return (
-    <main id="main-content" className="min-h-screen bg-white py-8 sm:py-12 px-4">
+    <main id="main-content" className="min-h-screen bg-white py-10 px-4">
       <div className="max-w-6xl mx-auto">
         <header className="mb-12">
-          <h1 className="text-4xl font-bold text-black mb-2">
-            Fact Checker
+          <h1 className="text-4xl sm:text-5xl font-semibold text-gray-900">
+            Verify Claims.
           </h1>
         </header>
 
         {/* Input Section */}
         <div className="max-w-3xl mx-auto">
-          <TextInput onCheckFacts={handleCheckFacts} isLoading={isLoading} />
+          <TextInput
+            onCheckFacts={handleCheckFacts}
+            isLoading={isLoading}
+            text={inputText}
+            onTextChange={(value) => {
+              setInputText(value);
+              if (pendingCachedResult && pendingCachedResult.original_text !== value) {
+                setPendingCachedResult(null);
+              }
+            }}
+          />
 
           {error && (
             <div

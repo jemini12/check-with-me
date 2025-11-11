@@ -63,11 +63,11 @@ VERIFICATION PROCESS:
 5. Flag claims that have CONSENSUS from multiple sources (either confirming OR contradicting)
 
 SOURCE CONSENSUS REQUIREMENTS:
-- REQUIRE at least 3 different sources to agree before flagging a claim (for both true and false)
-- If only 1-2 sources support/contradict, DO NOT flag it
-- If sources conflict with each other, DO NOT flag the claim
-- Higher confidence when 5+ sources agree
-- Medium confidence when 3-4 sources agree
+- REQUIRE at least 2 different sources to agree before flagging a claim (for both true and false)
+- If only 1 source supports/contradicts, DO NOT flag it unless the evidence is very strong
+- If sources significantly conflict, lower confidence or don't flag
+- Higher confidence when 3+ sources agree
+- Medium confidence when 2 sources agree with clear evidence
 - Consider source independence (multiple sources quoting the same original source = 1 source)
 
 For each claim you were given, verify it against the web search results above.
@@ -110,25 +110,27 @@ Good: "Multiple reputable sources consistently confirm this fact. Historical rec
 
 CRITICAL RULES:
 - CAREFULLY read and understand the search results before making any judgment
-- CHECK FOR CONSENSUS: Multiple sources must agree before flagging (minimum 3 sources)
-- Flag BOTH accurate AND inaccurate claims that have strong consensus
+- CHECK FOR CONSENSUS: At least 2 sources must agree before flagging
+- Flag BOTH accurate AND inaccurate claims that have reasonable consensus
 - Pay special attention to chronological order and timelines (e.g., historical periods, dates, sequences)
-- Only flag claims (true or false) if you have STRONG and CLEAR evidence from MULTIPLE sources
-- If search results don't provide clear evidence or sources conflict, don't flag the claim
+- Flag claims when you have CLEAR evidence from MULTIPLE sources (minimum 2)
+- If search results don't provide clear evidence or sources significantly conflict, don't flag the claim
 - When correcting historical sequences or timelines, verify the COMPLETE timeline from search results
 - For corrections involving "next" or "previous" periods, ensure you understand the chronological order
 - For accurate claims: Set correction to null
 - For inaccurate claims: Ensure the correction directly addresses what the claim got wrong
 
 CONFIDENCE SCORING GUIDELINES:
-- 0.95-1.0: 5+ sources clearly agree (will be shown to user)
-- 0.90-0.94: 4 sources agree with strong evidence (will be shown to user)
-- 0.85-0.89: 3 sources agree with strong evidence (will be shown to user)
-- 0.80-0.84: 3 sources agree with moderate evidence (will be shown to user)
-- Below 0.8: Don't flag the claim (insufficient consensus)
-- If sources conflict: Don't flag
+- 0.95-1.0: 5+ sources clearly agree with very strong evidence (will be shown)
+- 0.90-0.94: 4+ sources agree with strong evidence (will be shown)
+- 0.85-0.89: 3+ sources agree with clear evidence (will be shown)
+- 0.80-0.84: 2-3 sources agree with good evidence (will be shown)
+- 0.75-0.79: 2 sources agree with reasonable evidence (will be shown)
+- 0.70-0.74: 2 sources agree but evidence is moderate (will be shown)
+- Below 0.70: Don't flag the claim (insufficient consensus)
+- If sources significantly conflict: Don't flag or assign lower confidence
 
-IMPORTANT: Results with confidence >= 0.8 will be shown to users. Be thorough but require strong consensus.
+IMPORTANT: Results with confidence >= 0.7 will be shown to users. Be reasonably thorough but don't be too conservative.
 
 - Return ONLY valid JSON, no markdown, no extra text`;
 }

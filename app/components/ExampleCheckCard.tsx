@@ -1,6 +1,6 @@
 'use client';
 
-import { ExampleCheck, CATEGORY_INFO } from '../lib/example-checks';
+import { ExampleCheck } from '../lib/example-checks';
 
 interface ExampleCheckCardProps {
   example: ExampleCheck;
@@ -17,26 +17,33 @@ export default function ExampleCheckCard({
   onUpvote,
   onCheck
 }: ExampleCheckCardProps) {
-  const categoryInfo = CATEGORY_INFO[example.category];
-
   return (
-    <div className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors bg-white">
-      {/* Header: Category and Upvote */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">{categoryInfo.emoji}</span>
-          <span className="text-xs font-medium text-gray-600">{categoryInfo.label}</span>
-        </div>
+    <div className="border border-gray-200 rounded-lg p-4 bg-white flex flex-col h-full">
+      {/* Claim Text */}
+      <p className="text-gray-900 text-sm leading-relaxed mb-4 flex-1">
+        "{example.prompt}"
+      </p>
 
+      {/* Check Button */}
+      <div className="flex items-center gap-2 mt-auto">
+        <button
+          onClick={onCheck}
+          className="px-4 py-2 bg-black text-white text-sm rounded hover:bg-gray-900 transition-colors inline-flex items-center justify-center gap-2"
+        >
+          <span>Check</span>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
         <button
           onClick={(e) => {
             e.stopPropagation();
             onUpvote();
           }}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-colors ${
             isUpvoted
-              ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              ? 'bg-black text-white border-black'
+              : 'bg-white text-gray-700 border-gray-300 hover:border-black'
           }`}
           title={isUpvoted ? 'Remove upvote' : 'Upvote if interesting'}
         >
@@ -56,22 +63,6 @@ export default function ExampleCheckCard({
           <span className="text-sm font-semibold">{upvoteCount}</span>
         </button>
       </div>
-
-      {/* Claim Text */}
-      <p className="text-gray-900 text-sm leading-relaxed mb-4">
-        "{example.prompt}"
-      </p>
-
-      {/* Check Button */}
-      <button
-        onClick={onCheck}
-        className="w-full px-4 py-2 bg-black text-white text-sm rounded hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
-      >
-        <span>Check This Claim</span>
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
     </div>
   );
 }

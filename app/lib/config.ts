@@ -33,7 +33,7 @@ export const OPENAI_CONFIG = {
 
 export const CONFIDENCE_THRESHOLDS = {
   /** Minimum confidence to report a fact check */
-  MIN_CONFIDENCE: 0.8,
+  MIN_CONFIDENCE: 0.7,
 
   /** High confidence threshold */
   HIGH_CONFIDENCE: 0.9,

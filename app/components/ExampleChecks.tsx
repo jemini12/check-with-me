@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import ExampleCheckCard from './ExampleCheckCard';
-import { EXAMPLE_CHECKS, ExampleCategory, CATEGORY_INFO } from '../lib/example-checks';
+import { EXAMPLE_CHECKS } from '../lib/example-checks';
 import { FactCheckResponse } from '../lib/types';
 
 interface ExampleChecksProps {
@@ -13,7 +13,6 @@ const UPVOTES_STORAGE_KEY = 'fact-checker-upvotes';
 
 export default function ExampleChecks({ onCheckExample }: ExampleChecksProps) {
   const [upvotes, setUpvotes] = useState<Record<string, boolean>>({});
-  const [selectedCategory, setSelectedCategory] = useState<ExampleCategory | 'all'>('all');
   const [mounted, setMounted] = useState(false);
 
   // Load upvotes from localStorage on mount
@@ -49,61 +48,18 @@ export default function ExampleChecks({ onCheckExample }: ExampleChecksProps) {
     return initialCount + (upvotes[exampleId] ? 1 : 0);
   };
 
-  // Filter examples by category
-  const filteredExamples = selectedCategory === 'all'
-    ? EXAMPLE_CHECKS
-    : EXAMPLE_CHECKS.filter(ex => ex.category === selectedCategory);
-
   // Sort by upvote count (highest first)
-  const sortedExamples = [...filteredExamples].sort((a, b) => {
+  const sortedExamples = [...EXAMPLE_CHECKS].sort((a, b) => {
     const aCount = getUpvoteCount(a.id, a.initialUpvotes);
     const bCount = getUpvoteCount(b.id, b.initialUpvotes);
     return bCount - aCount;
   });
 
-  const categories: Array<ExampleCategory | 'all'> = ['all', 'science', 'health', 'history', 'myths'];
-
   return (
-    <div className="w-full space-y-6">
+    <section className="w-full space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Popular Fact-Checks</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Explore interesting claims others have checked
-          </p>
-        </div>
-      </div>
-
-      {/* Category Filter */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setSelectedCategory('all')}
-          className={`px-4 py-2 text-sm rounded-full transition-colors ${
-            selectedCategory === 'all'
-              ? 'bg-black text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          All
-        </button>
-        {categories.slice(1).map(category => {
-          const info = CATEGORY_INFO[category as ExampleCategory];
-          return (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category as ExampleCategory)}
-              className={`px-4 py-2 text-sm rounded-full transition-colors flex items-center gap-2 ${
-                selectedCategory === category
-                  ? 'bg-black text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <span>{info.emoji}</span>
-              <span>{info.label}</span>
-            </button>
-          );
-        })}
+      <div>
+        <h2 className="text-2xl font-semibold text-gray-900">Trendings</h2>
       </div>
 
       {/* Examples Grid */}
@@ -119,13 +75,6 @@ export default function ExampleChecks({ onCheckExample }: ExampleChecksProps) {
           />
         ))}
       </div>
-
-      {/* Empty State */}
-      {sortedExamples.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500">No examples in this category yet.</p>
-        </div>
-      )}
-    </div>
+    </section>
   );
 }
