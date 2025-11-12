@@ -604,7 +604,7 @@ export default function AdminPage() {
       {/* Details Modal */}
       {selectedEntry && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 backdrop-blur-sm"
           onClick={() => setSelectedEntry(null)}
         >
           <div
