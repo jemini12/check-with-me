@@ -22,6 +22,7 @@ export default function ExampleChecks({ onCheckExample }: ExampleChecksProps) {
   const [upvotes, setUpvotes] = useState<Record<string, boolean>>({});
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [upvoting, setUpvoting] = useState<Record<string, boolean>>({});
 
   // Load upvotes from localStorage on mount
   useEffect(() => {
@@ -65,6 +66,11 @@ export default function ExampleChecks({ onCheckExample }: ExampleChecksProps) {
 
   // Toggle upvote for an example and update database
   const handleUpvote = async (promptId: string) => {
+    // Prevent double-clicking
+    if (upvoting[promptId]) {
+      return;
+    }
+
     const wasUpvoted = upvotes[promptId];
 
     // Optimistic UI update
@@ -75,6 +81,8 @@ export default function ExampleChecks({ onCheckExample }: ExampleChecksProps) {
 
     // Only call API if not already upvoted (prevent multiple upvotes)
     if (!wasUpvoted) {
+      setUpvoting(prev => ({ ...prev, [promptId]: true }));
+
       try {
         const response = await fetch(`/api/trending/${promptId}/upvote`, {
           method: 'POST',
@@ -86,7 +94,7 @@ export default function ExampleChecks({ onCheckExample }: ExampleChecksProps) {
 
         const { upvote_count } = await response.json();
 
-        // Update local state with new count
+        // Update local state with server count
         setTrendingPrompts(prev =>
           prev.map(p =>
             p.id === promptId ? { ...p, upvote_count } : p
@@ -99,13 +107,21 @@ export default function ExampleChecks({ onCheckExample }: ExampleChecksProps) {
           ...prev,
           [promptId]: wasUpvoted
         }));
+      } finally {
+        setUpvoting(prev => ({ ...prev, [promptId]: false }));
       }
     }
   };
 
   // Calculate upvote count for display
+  // Don't add optimistic +1 if server has synced (prevents double counting)
   const getUpvoteCount = (promptId: string, baseCount: number): number => {
-    return (baseCount || 0) + (upvotes[promptId] ? 1 : 0);
+    const hasUpvoted = upvotes[promptId];
+    const isUpvoting = upvoting[promptId];
+
+    // If currently upvoting, show optimistic count
+    // Once API returns, baseCount already includes the upvote
+    return (baseCount || 0) + (hasUpvoted && isUpvoting ? 1 : 0);
   };
 
   if (loading) {
