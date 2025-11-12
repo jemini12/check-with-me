@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FactCheck } from '../lib/types';
 
 interface HighlightedTextProps {
@@ -15,6 +15,18 @@ interface TextSegment {
 
 export default function HighlightedText({ text, factChecks }: HighlightedTextProps) {
   const [selectedFactCheck, setSelectedFactCheck] = useState<FactCheck | null>(null);
+
+  // Lock/unlock body scroll when modal opens/closes
+  useEffect(() => {
+    if (selectedFactCheck) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [selectedFactCheck]);
 
   // Sort fact checks by start position
   const sortedFactChecks = [...factChecks].sort((a, b) => a.start - b.start);

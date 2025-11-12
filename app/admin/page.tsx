@@ -74,6 +74,18 @@ export default function AdminPage() {
     }
   }, [activeTab, search, filterError]);
 
+  // Lock/unlock body scroll when modal opens/closes
+  useEffect(() => {
+    if (selectedEntry) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [selectedEntry]);
+
   // ===== Trending Functions =====
   const fetchPrompts = async () => {
     setTrendingLoading(true);
