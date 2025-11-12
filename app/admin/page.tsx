@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { FactCheckResponse } from '../lib/types';
+import BottomSheet from '../components/BottomSheet';
 
 // Trending Prompts Types
 interface TrendingPrompt {
@@ -74,17 +75,6 @@ export default function AdminPage() {
     }
   }, [activeTab, search, filterError]);
 
-  // Lock/unlock body scroll when modal opens/closes
-  useEffect(() => {
-    if (selectedEntry) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [selectedEntry]);
 
   // ===== Trending Functions =====
   const fetchPrompts = async () => {
@@ -614,40 +604,25 @@ export default function AdminPage() {
       </div>
 
       {/* Details Modal */}
-      {selectedEntry && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 backdrop-blur-md"
-          onClick={() => setSelectedEntry(null)}
-        >
-          <div
-            className="bg-white rounded max-w-4xl w-full p-8 shadow-2xl max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-start mb-6">
-              <h3 className="text-2xl font-bold text-gray-900">Entry Details</h3>
-              <div className="flex gap-2">
-                {!selectedEntry.is_error && (
-                  <button
-                    onClick={() => {
-                      handleAddToTrending(selectedEntry.id);
-                      setSelectedEntry(null);
-                    }}
-                    disabled={addingToTrending === selectedEntry.id}
-                    className="bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-800 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {addingToTrending === selectedEntry.id ? 'Adding...' : 'Add to Trending'}
-                  </button>
-                )}
-                <button
-                  onClick={() => setSelectedEntry(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4">
+      <BottomSheet
+        isOpen={selectedEntry !== null}
+        onClose={() => setSelectedEntry(null)}
+        title="Entry Details"
+      >
+        {selectedEntry && (
+          <div className="space-y-4">
+            {!selectedEntry.is_error && (
+              <button
+                onClick={() => {
+                  handleAddToTrending(selectedEntry.id);
+                  setSelectedEntry(null);
+                }}
+                disabled={addingToTrending === selectedEntry.id}
+                className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {addingToTrending === selectedEntry.id ? 'Adding...' : 'Add to Trending'}
+              </button>
+            )}
               <div>
                 <div className="text-sm font-medium text-gray-500 mb-1">Original Text</div>
                 <div className="p-3 bg-gray-50 rounded text-sm">{selectedEntry.original_text}</div>
@@ -697,9 +672,8 @@ export default function AdminPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+        )}
+      </BottomSheet>
     </div>
   );
 }

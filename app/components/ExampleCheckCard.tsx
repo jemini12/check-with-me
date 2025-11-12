@@ -1,6 +1,7 @@
 'use client';
 
 import { ExampleCheck } from '../lib/types';
+import { useSwipeGesture } from '../lib/hooks/useSwipeGesture';
 
 interface ExampleCheckCardProps {
   example: ExampleCheck;
@@ -17,8 +18,21 @@ export default function ExampleCheckCard({
   onUpvote,
   onCheck
 }: ExampleCheckCardProps) {
+  // Swipe right to upvote, swipe left to check
+  const cardRef = useSwipeGesture<HTMLDivElement>({
+    onSwipeRight: () => {
+      if (!isUpvoted) {
+        onUpvote();
+      }
+    },
+    onSwipeLeft: onCheck,
+  });
+
   return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-white flex flex-col h-full">
+    <div
+      ref={cardRef}
+      className="border border-gray-200 rounded-lg p-4 bg-white flex flex-col h-full touch-pan-y"
+    >
       {/* Claim Text */}
       <p className="text-gray-900 text-sm leading-relaxed mb-4 flex-1">
         "{example.prompt}"

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FactCheck } from '../lib/types';
+import BottomSheet from './BottomSheet';
 
 interface HighlightedTextProps {
   text: string;
@@ -15,18 +16,6 @@ interface TextSegment {
 
 export default function HighlightedText({ text, factChecks }: HighlightedTextProps) {
   const [selectedFactCheck, setSelectedFactCheck] = useState<FactCheck | null>(null);
-
-  // Lock/unlock body scroll when modal opens/closes
-  useEffect(() => {
-    if (selectedFactCheck) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [selectedFactCheck]);
 
   // Sort fact checks by start position
   const sortedFactChecks = [...factChecks].sort((a, b) => a.start - b.start);
@@ -125,22 +114,13 @@ export default function HighlightedText({ text, factChecks }: HighlightedTextPro
         </div>
       </div>
 
-      {selectedFactCheck && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 backdrop-blur-md" onClick={() => setSelectedFactCheck(null)}>
-          <div className="bg-white rounded-lg max-w-2xl w-full p-8 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-6 pb-4 border-b border-gray-200">
-              <h3 className="text-2xl font-bold text-gray-900">Details</h3>
-              <button
-                onClick={() => setSelectedFactCheck(null)}
-                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors"
-                aria-label="Close"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
+      <BottomSheet
+        isOpen={selectedFactCheck !== null}
+        onClose={() => setSelectedFactCheck(null)}
+        title="Details"
+      >
+        {selectedFactCheck && (
+          <>
             <div className="space-y-6">
               <div className={`${selectedFactCheck.is_accurate ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-lg p-4`}>
                 <p className={`text-xs font-semibold ${selectedFactCheck.is_accurate ? 'text-green-600' : 'text-red-600'} uppercase tracking-wide mb-2`}>
@@ -220,9 +200,9 @@ export default function HighlightedText({ text, factChecks }: HighlightedTextPro
             >
               Close
             </button>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </BottomSheet>
     </div>
   );
 }
