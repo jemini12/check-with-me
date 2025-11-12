@@ -56,8 +56,8 @@ export async function POST(
       return NextResponse.json({ success: true, upvote_count: newCount });
     }
 
-    logger.info('Trending prompt upvoted via RPC', { id, data });
-    return NextResponse.json({ success: true, data });
+    logger.info('Trending prompt upvoted via RPC', { id, upvote_count: data });
+    return NextResponse.json({ success: true, upvote_count: data });
   } catch (error) {
     logger.error('Unexpected error upvoting trending prompt', error);
     return NextResponse.json(

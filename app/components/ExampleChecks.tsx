@@ -105,7 +105,7 @@ export default function ExampleChecks({ onCheckExample }: ExampleChecksProps) {
 
   // Calculate upvote count for display
   const getUpvoteCount = (promptId: string, baseCount: number): number => {
-    return baseCount + (upvotes[promptId] ? 1 : 0);
+    return (baseCount || 0) + (upvotes[promptId] ? 1 : 0);
   };
 
   if (loading) {
