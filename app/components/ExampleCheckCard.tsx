@@ -18,13 +18,8 @@ export default function ExampleCheckCard({
   onUpvote,
   onCheck
 }: ExampleCheckCardProps) {
-  // Swipe right to upvote, swipe left to check
+  // Swipe left to check
   const cardRef = useSwipeGesture<HTMLDivElement>({
-    onSwipeRight: () => {
-      if (!isUpvoted) {
-        onUpvote();
-      }
-    },
     onSwipeLeft: onCheck,
   });
 
@@ -49,33 +44,7 @@ export default function ExampleCheckCard({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onUpvote();
-          }}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-colors ${
-            isUpvoted
-              ? 'bg-black text-white border-black'
-              : 'bg-white text-gray-700 border-gray-300 hover:border-black'
-          }`}
-          title={isUpvoted ? 'Remove upvote' : 'Upvote if interesting'}
-        >
-          <svg
-            className="w-4 h-4"
-            fill={isUpvoted ? 'currentColor' : 'none'}
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 15l7-7 7 7"
-            />
-          </svg>
-          <span className="text-sm font-semibold">{upvoteCount}</span>
-        </button>
+        {/* Upvote button hidden - feature not stable yet */}
       </div>
     </div>
   );
