@@ -5,7 +5,7 @@ import { OPENAI_CONFIG, ERROR_MESSAGES, CONFIDENCE_THRESHOLDS } from './config';
 import { getOpenAIApiKey, getOpenAIModel } from './env';
 import { logger } from './logger';
 import {
-  INITIAL_SCREENING_PROMPT,
+  createInitialScreeningPrompt,
   createVerificationPrompt,
   createScreeningInput,
   createVerificationInput,
@@ -16,6 +16,7 @@ import {
   ClaimToVerify,
 } from './validation';
 import { ProcessingError, toAppError } from './errors';
+import { detectLanguage, getLanguageInstruction } from './language-detect';
 
 const getElapsedMs = (startTime: number) => Date.now() - startTime;
 
@@ -64,7 +65,8 @@ const calculateClaimPosition = (text: string, claim: string): { start: number; e
 async function performInitialScreening(
   openai: OpenAI,
   text: string,
-  modelName: string
+  modelName: string,
+  languageInstruction: string
 ): Promise<ClaimToVerify[]> {
   const stepStart = Date.now();
   logger.info('Step 1: Identifying claims that need verification');
@@ -76,7 +78,7 @@ async function performInitialScreening(
 
   const screeningResponse = await openai.responses.create({
     ...params,
-    instructions: INITIAL_SCREENING_PROMPT,
+    instructions: createInitialScreeningPrompt(languageInstruction),
     input: screeningInput,
   });
 
@@ -156,7 +158,8 @@ async function verifyClaim(
   modelName: string,
   originalText: string,
   claimIndex: number,
-  totalClaims: number
+  totalClaims: number,
+  languageInstruction: string
 ): Promise<FactCheck[]> {
   const claimStart = Date.now();
   logger.debug('Processing claim', {
@@ -192,7 +195,7 @@ async function verifyClaim(
 
   const verificationResponse = await openai.responses.create({
     ...params,
-    instructions: createVerificationPrompt(webContext),
+    instructions: createVerificationPrompt(webContext, languageInstruction),
     input: verificationInput,
   });
 
@@ -285,7 +288,8 @@ async function verifyAllClaims(
   claims: ClaimToVerify[],
   searchResults: Source[][],
   modelName: string,
-  originalText: string
+  originalText: string,
+  languageInstruction: string
 ): Promise<FactCheck[]> {
   const stepStart = Date.now();
   logger.info('Step 3: Verifying claims with search results', { claimCount: claims.length });
@@ -298,7 +302,8 @@ async function verifyAllClaims(
       modelName,
       originalText,
       index,
-      claims.length
+      claims.length,
+      languageInstruction
     )
   );
 
@@ -327,13 +332,18 @@ export async function checkFacts(text: string): Promise<FactCheck[]> {
     const openai = createOpenAIClient();
     const modelName = getOpenAIModel(OPENAI_CONFIG.DEFAULT_MODEL);
 
+    // Detect language of input text
+    const detectedLanguage = detectLanguage(text);
+    const languageInstruction = getLanguageInstruction(detectedLanguage.name);
+
     logger.info('Starting fact-check process', {
       textLength: text.length,
       model: modelName,
+      detectedLanguage: detectedLanguage.name,
     });
 
     // Step 1: Identify claims that need verification
-    const claimsToVerify = await performInitialScreening(openai, text, modelName);
+    const claimsToVerify = await performInitialScreening(openai, text, modelName, languageInstruction);
 
     if (claimsToVerify.length === 0) {
       return [];
@@ -348,7 +358,8 @@ export async function checkFacts(text: string): Promise<FactCheck[]> {
       claimsToVerify,
       allSearchResults,
       modelName,
-      text
+      text,
+      languageInstruction
     );
 
     // Filter to show results with sufficient confidence (>= 0.8)

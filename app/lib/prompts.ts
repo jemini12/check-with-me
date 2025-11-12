@@ -5,8 +5,10 @@
 
 /**
  * Prompt for initial screening phase - identifies claims that need verification
+ * @param languageInstruction - Optional instruction to respond in specific language
  */
-export const INITIAL_SCREENING_PROMPT = `Extract ALL factual claims from the text that can be verified. Be VERY liberal - when in doubt, include it.
+export function createInitialScreeningPrompt(languageInstruction?: string): string {
+  return `Extract ALL factual claims from the text that can be verified. Be VERY liberal - when in doubt, include it.
 
 INCLUDE these types of claims:
 - Historical facts (periods, dynasties, dates, events, sequences like "X came after Y")
@@ -41,15 +43,21 @@ Output: [{"claim": "The earth is flat", "reason_to_verify": "Scientific fact"}]
 Input: "I think the weather is nice"
 Output: []
 
-Extract claims EXACTLY as they appear. Support all languages.`;
+Extract claims EXACTLY as they appear. Support all languages.
+
+${languageInstruction || ''}`;
+}
 
 /**
  * Creates a verification prompt with web search context
  * @param webContext - Formatted search results from web search
+ * @param languageInstruction - Optional instruction to respond in specific language
  * @returns The complete verification prompt
  */
-export function createVerificationPrompt(webContext: string): string {
+export function createVerificationPrompt(webContext: string, languageInstruction?: string): string {
   return `You are verifying specific claims using real-time web search results. You will identify BOTH accurate and inaccurate claims.
+
+${languageInstruction || ''}
 
 ===== WEB SEARCH RESULTS =====
 ${webContext}
