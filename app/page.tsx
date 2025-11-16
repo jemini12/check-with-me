@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import TextInput from './components/TextInput';
 import HighlightedText from './components/HighlightedText';
-import ExampleChecks from './components/ExampleChecks';
 import { FactCheckResponse } from './lib/types';
 
 // Loading skeleton component
@@ -27,8 +26,6 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastCheckedText, setLastCheckedText] = useState<string>('');
-  const [inputText, setInputText] = useState<string>('');
-  const [pendingCachedResult, setPendingCachedResult] = useState<FactCheckResponse | null>(null);
   const TITLE_TEXT = 'Verify claims.';
   const [typedTitle, setTypedTitle] = useState('');
   const [typingStarted, setTypingStarted] = useState(false);
@@ -60,13 +57,6 @@ export default function Home() {
     setError(null);
     setResult(null);
     setLastCheckedText(text);
-
-    if (pendingCachedResult && pendingCachedResult.original_text === text) {
-      setResult(pendingCachedResult);
-      setPendingCachedResult(null);
-      setIsLoading(false);
-      return;
-    }
 
     try {
       const response = await fetch('/api/fact-check', {
@@ -101,15 +91,6 @@ export default function Home() {
     setError(null);
   };
 
-  const handleCheckExample = (cachedResult: FactCheckResponse) => {
-    setError(null);
-    setResult(null);
-    setPendingCachedResult(cachedResult);
-    setInputText(cachedResult.original_text);
-    const inputElement = document.getElementById('text-input') as HTMLTextAreaElement | null;
-    inputElement?.focus();
-  };
-
   return (
     <main id="main-content" className="min-h-screen bg-white py-10 px-4">
       <div className="max-w-6xl mx-auto">
@@ -132,13 +113,6 @@ export default function Home() {
           <TextInput
             onCheckFacts={handleCheckFacts}
             isLoading={isLoading}
-            text={inputText}
-            onTextChange={(value) => {
-              setInputText(value);
-              if (pendingCachedResult && pendingCachedResult.original_text !== value) {
-                setPendingCachedResult(null);
-              }
-            }}
           />
 
           {error && (
@@ -178,12 +152,6 @@ export default function Home() {
             </div>
           )}
         </div>
-
-        {/* Examples Section */}
-        <div className="mt-16">
-          <ExampleChecks onCheckExample={handleCheckExample} />
-        </div>
-
       </div>
     </main>
   );

@@ -1,17 +1,20 @@
 'use client';
 
-import { FormEvent, KeyboardEvent } from 'react';
+import { FormEvent, KeyboardEvent, useState } from 'react';
 
 interface TextInputProps {
   onCheckFacts: (text: string) => void;
   isLoading: boolean;
-  text: string;
-  onTextChange: (text: string) => void;
+  text?: string;
+  onTextChange?: (text: string) => void;
 }
 
 const MAX_CHARACTERS = 1000;
 
-export default function TextInput({ onCheckFacts, isLoading, text, onTextChange }: TextInputProps) {
+export default function TextInput({ onCheckFacts, isLoading, text: controlledText, onTextChange }: TextInputProps) {
+  const [internalText, setInternalText] = useState('');
+  const text = controlledText !== undefined ? controlledText : internalText;
+  const setText = onTextChange || setInternalText;
   const handleSubmit = (event?: FormEvent) => {
     event?.preventDefault();
     if (text.trim() && text.length <= MAX_CHARACTERS) {
@@ -36,7 +39,7 @@ export default function TextInput({ onCheckFacts, isLoading, text, onTextChange 
       <textarea
         id="text-input"
         value={text}
-        onChange={(e) => onTextChange(e.target.value)}
+        onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder="Paste text to verify…"
         className="w-full h-56 border border-black/10 rounded-md px-4 py-3 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black"
@@ -57,7 +60,7 @@ export default function TextInput({ onCheckFacts, isLoading, text, onTextChange 
           {text && (
             <button
               type="button"
-              onClick={() => onTextChange('')}
+              onClick={() => setText('')}
               className="px-3 py-1.5 text-xs border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
             >
               Clear

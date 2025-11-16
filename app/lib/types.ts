@@ -70,19 +70,3 @@ export interface ErrorResponse {
   /** Error code for programmatic handling */
   code: string;
 }
-
-/**
- * Categories for example fact-checks
- */
-export type ExampleCategory = 'science' | 'health' | 'history' | 'myths' | 'politics';
-
-/**
- * Represents a curated example fact-check with cached results
- */
-export interface ExampleCheck {
-  id: string;
-  prompt: string;
-  category: ExampleCategory;
-  cachedResult: FactCheckResponse;
-  initialUpvotes: number;
-}
