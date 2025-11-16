@@ -42,6 +42,32 @@ export interface Source {
 }
 
 /**
+ * Status of a claim verification
+ */
+export type ClaimVerificationStatus = 'success' | 'failed' | 'pending';
+
+/**
+ * Result of verifying a single claim (with error handling)
+ */
+export interface ClaimVerificationResult {
+  /** The claim that was verified */
+  claim: string;
+
+  /** Verification status */
+  status: ClaimVerificationStatus;
+
+  /** Fact-check results if successful */
+  factChecks?: FactCheck[];
+
+  /** Error information if failed */
+  error?: {
+    message: string;
+    code: string;
+    retryable: boolean;
+  };
+}
+
+/**
  * API response for fact-checking request
  */
 export interface FactCheckResponse {
@@ -50,6 +76,12 @@ export interface FactCheckResponse {
 
   /** Array of fact-check results for inaccurate claims */
   fact_checks: FactCheck[];
+
+  /** Optional: Per-claim verification results with error tracking */
+  claim_results?: ClaimVerificationResult[];
+
+  /** Optional: Whether this response has partial failures */
+  has_failures?: boolean;
 }
 
 /**

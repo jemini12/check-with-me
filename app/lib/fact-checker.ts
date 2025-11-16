@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { FactCheck, Source } from './types';
+import { FactCheck, Source, ClaimVerificationResult, FactCheckResponse } from './types';
 import { searchWeb } from './web-search';
 import { OPENAI_CONFIG, ERROR_MESSAGES, CONFIDENCE_THRESHOLDS } from './config';
 import { getOpenAIApiKey, getOpenAIModel } from './env';
@@ -15,7 +15,7 @@ import {
   safeJsonParse,
   ClaimToVerify,
 } from './validation';
-import { ProcessingError, toAppError } from './errors';
+import { ProcessingError, toAppError, isAppError } from './errors';
 import { detectLanguage, getLanguageInstruction } from './language-detect';
 import { generateSearchQueries } from './translation';
 
@@ -188,6 +188,7 @@ async function searchForClaims(
 
 /**
  * Verifies a single claim using OpenAI and search results
+ * Returns ClaimVerificationResult with error handling
  */
 async function verifyClaim(
   openai: OpenAI,
@@ -198,7 +199,7 @@ async function verifyClaim(
   claimIndex: number,
   totalClaims: number,
   languageInstruction: string
-): Promise<FactCheck[]> {
+): Promise<ClaimVerificationResult> {
   const claimStart = Date.now();
   logger.debug('Processing claim', {
     index: claimIndex + 1,
@@ -207,119 +208,182 @@ async function verifyClaim(
     searchResultCount: searchResults.length,
   });
 
-  if (searchResults.length === 0) {
-    logger.warn('No search results available for claim, skipping', { claim: claim.claim });
-    return [];
-  }
+  try {
+    if (searchResults.length === 0) {
+      logger.warn('No search results available for claim', { claim: claim.claim });
+      return {
+        claim: claim.claim,
+        status: 'failed',
+        error: {
+          message: 'No search results found',
+          code: 'SEARCH_ERROR',
+          retryable: true,
+        },
+      };
+    }
 
-  const webContext = formatSearchResults(searchResults);
-  const params = createOpenAIParams(modelName, OPENAI_CONFIG.VERIFICATION_EFFORT);
-  const verificationInput = createVerificationInput(claim.claim);
+    const webContext = formatSearchResults(searchResults);
+    const params = createOpenAIParams(modelName, OPENAI_CONFIG.VERIFICATION_EFFORT);
+    const verificationInput = createVerificationInput(claim.claim);
 
-  logger.debug('Calling OpenAI verification API', {
-    claim: claim.claim,
-    model: params.model,
-    reasoningEffort: OPENAI_CONFIG.VERIFICATION_EFFORT,
-    maxOutputTokens: params.max_output_tokens,
-    searchResultCount: searchResults.length,
-    webContextLength: webContext.length,
-  });
+    logger.debug('Calling OpenAI verification API', {
+      claim: claim.claim,
+      model: params.model,
+      reasoningEffort: OPENAI_CONFIG.VERIFICATION_EFFORT,
+      maxOutputTokens: params.max_output_tokens,
+      searchResultCount: searchResults.length,
+      webContextLength: webContext.length,
+    });
 
-  logger.debug('Verification input', {
-    claim: claim.claim,
-    input: verificationInput,
-    webContext: webContext,
-  });
+    logger.debug('Verification input', {
+      claim: claim.claim,
+      input: verificationInput,
+      webContext: webContext,
+    });
 
-  const verificationResponse = await openai.responses.create({
-    ...params,
-    instructions: createVerificationPrompt(webContext, languageInstruction),
-    input: verificationInput,
-  });
+    const verificationResponse = await openai.responses.create({
+      ...params,
+      instructions: createVerificationPrompt(webContext, languageInstruction),
+      input: verificationInput,
+    });
 
-  logger.debug('OpenAI verification response received', {
-    claim: claim.claim,
-    responseId: verificationResponse.id,
-    model: verificationResponse.model,
-    status: verificationResponse.status,
-    hasOutputText: !!verificationResponse.output_text,
-    outputTextLength: verificationResponse.output_text?.length || 0,
-    usage: verificationResponse.usage,
-    responseKeys: Object.keys(verificationResponse),
-  });
-
-  const verificationContent = verificationResponse.output_text;
-
-  if (!verificationContent) {
-    logger.warn('No verification response received, skipping claim', {
+    logger.debug('OpenAI verification response received', {
       claim: claim.claim,
       responseId: verificationResponse.id,
-      status: verificationResponse.status,
       model: verificationResponse.model,
+      status: verificationResponse.status,
+      hasOutputText: !!verificationResponse.output_text,
+      outputTextLength: verificationResponse.output_text?.length || 0,
       usage: verificationResponse.usage,
-      allResponseKeys: Object.keys(verificationResponse),
-      fullResponse: JSON.stringify(verificationResponse, null, 2),
+      responseKeys: Object.keys(verificationResponse),
     });
-    return [];
-  }
 
-  logger.debug('Verification response received', {
-    claim: claim.claim,
-    outputLength: verificationContent.length,
-    contentPreview: verificationContent.substring(0, 500),
-  });
+    const verificationContent = verificationResponse.output_text;
 
-  logger.debug('Attempting to parse verification JSON', {
-    claim: claim.claim,
-    contentLength: verificationContent.length,
-  });
+    if (!verificationContent) {
+      logger.warn('No verification response received', {
+        claim: claim.claim,
+        responseId: verificationResponse.id,
+        status: verificationResponse.status,
+        model: verificationResponse.model,
+        usage: verificationResponse.usage,
+        allResponseKeys: Object.keys(verificationResponse),
+        fullResponse: JSON.stringify(verificationResponse, null, 2),
+      });
+      return {
+        claim: claim.claim,
+        status: 'failed',
+        error: {
+          message: 'Empty response from verification API',
+          code: 'API_ERROR',
+          retryable: true,
+        },
+      };
+    }
 
-  const parsedVerification = safeJsonParse<Array<Omit<FactCheck, 'start' | 'end' | 'sources'>>>(
-    verificationContent.trim()
-  );
+    logger.debug('Verification response received', {
+      claim: claim.claim,
+      outputLength: verificationContent.length,
+      contentPreview: verificationContent.substring(0, 500),
+    });
 
-  if (!parsedVerification || !Array.isArray(parsedVerification)) {
-    logger.warn('Failed to parse verification response, skipping claim', {
+    logger.debug('Attempting to parse verification JSON', {
       claim: claim.claim,
       contentLength: verificationContent.length,
-      fullContent: verificationContent,
-      parseResult: parsedVerification,
     });
-    return [];
-  }
 
-  logger.debug('Successfully parsed verification JSON', {
-    claim: claim.claim,
-    parsedCount: parsedVerification.length,
-    parsedItems: parsedVerification,
-  });
+    const parsedVerification = safeJsonParse<Array<Omit<FactCheck, 'start' | 'end' | 'sources'>>>(
+      verificationContent.trim()
+    );
 
-  if (parsedVerification.length === 0) {
-    logger.debug('No issues found for claim', { claim: claim.claim });
-    return [];
-  }
+    if (!parsedVerification || !Array.isArray(parsedVerification)) {
+      logger.warn('Failed to parse verification response', {
+        claim: claim.claim,
+        contentLength: verificationContent.length,
+        fullContent: verificationContent,
+        parseResult: parsedVerification,
+      });
+      return {
+        claim: claim.claim,
+        status: 'failed',
+        error: {
+          message: 'Failed to parse verification response',
+          code: 'PROCESSING_ERROR',
+          retryable: true,
+        },
+      };
+    }
 
-  // Map verification results to FactCheck objects with position information
-  const factChecks = parsedVerification.map((check) => {
-    const position = calculateClaimPosition(originalText, check.claim);
+    logger.debug('Successfully parsed verification JSON', {
+      claim: claim.claim,
+      parsedCount: parsedVerification.length,
+      parsedItems: parsedVerification,
+    });
+
+    // Map verification results to FactCheck objects with position information
+    const factChecks = parsedVerification.map((check) => {
+      const position = calculateClaimPosition(originalText, check.claim);
+      return {
+        ...check,
+        ...position,
+        sources: searchResults,
+      };
+    });
+
+    logger.info('Verification complete for claim', {
+      claim: claim.claim,
+      issuesFound: factChecks.length,
+      elapsedMs: getElapsedMs(claimStart),
+    });
+
     return {
-      ...check,
-      ...position,
-      sources: searchResults,
+      claim: claim.claim,
+      status: 'success',
+      factChecks,
     };
-  });
+  } catch (error) {
+    logger.error('Error verifying claim', {
+      claim: claim.claim,
+      error,
+      elapsedMs: getElapsedMs(claimStart),
+    });
 
-  logger.info('Verification complete for claim', {
-    claim: claim.claim,
-    issuesFound: factChecks.length,
-    elapsedMs: getElapsedMs(claimStart),
-  });
+    // Determine error type and retryability
+    let errorCode = 'UNKNOWN_ERROR';
+    let errorMessage = 'Failed to verify claim';
+    let retryable = true;
 
-  return factChecks;
+    if (isAppError(error)) {
+      errorCode = error.code;
+      errorMessage = error.message;
+      retryable = error.code !== 'VALIDATION_ERROR';
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+
+      // Check for specific error patterns
+      if (error.message.includes('timeout')) {
+        errorCode = 'TIMEOUT_ERROR';
+      } else if (error.message.includes('rate limit')) {
+        errorCode = 'API_ERROR';
+        retryable = false;
+      }
+    }
+
+    return {
+      claim: claim.claim,
+      status: 'failed',
+      error: {
+        message: errorMessage,
+        code: errorCode,
+        retryable,
+      },
+    };
+  }
 }
 
 /**
  * Verifies all claims with their respective search results
+ * Returns both successful and failed verification results
  */
 async function verifyAllClaims(
   openai: OpenAI,
@@ -328,7 +392,7 @@ async function verifyAllClaims(
   modelName: string,
   originalText: string,
   languageInstruction: string
-): Promise<FactCheck[]> {
+): Promise<ClaimVerificationResult[]> {
   const stepStart = Date.now();
   logger.info('Step 3: Verifying claims with search results', { claimCount: claims.length });
 
@@ -345,26 +409,28 @@ async function verifyAllClaims(
     )
   );
 
-  const allFactChecks = await Promise.all(verificationPromises);
+  const allResults = await Promise.all(verificationPromises);
 
-  // Flatten array of arrays into single array
-  const flattenedFactChecks = allFactChecks.flat();
+  const successCount = allResults.filter(r => r.status === 'success').length;
+  const failureCount = allResults.filter(r => r.status === 'failed').length;
 
   logger.info('Verification complete', {
-    inaccurateClaimsFound: flattenedFactChecks.length,
+    successfulClaims: successCount,
+    failedClaims: failureCount,
+    totalClaims: allResults.length,
     elapsedMs: getElapsedMs(stepStart),
   });
 
-  return flattenedFactChecks;
+  return allResults;
 }
 
 /**
  * Main fact-checking function that orchestrates the entire process
  * @param text - The text to fact-check
- * @returns Array of fact-check results for inaccurate claims
+ * @returns FactCheckResponse with results and error information
  * @throws {AppError} If the fact-checking process fails
  */
-export async function checkFacts(text: string): Promise<FactCheck[]> {
+export async function checkFacts(text: string): Promise<FactCheckResponse> {
   try {
     const processStart = Date.now();
     const openai = createOpenAIClient();
@@ -384,14 +450,19 @@ export async function checkFacts(text: string): Promise<FactCheck[]> {
     const claimsToVerify = await performInitialScreening(openai, text, modelName, languageInstruction);
 
     if (claimsToVerify.length === 0) {
-      return [];
+      return {
+        original_text: text,
+        fact_checks: [],
+        claim_results: [],
+        has_failures: false,
+      };
     }
 
     // Step 2: Search web for each claim
     const allSearchResults = await searchForClaims(openai, claimsToVerify, modelName);
 
     // Step 3: Verify each claim with its search results
-    const factChecks = await verifyAllClaims(
+    const claimResults = await verifyAllClaims(
       openai,
       claimsToVerify,
       allSearchResults,
@@ -400,13 +471,23 @@ export async function checkFacts(text: string): Promise<FactCheck[]> {
       languageInstruction
     );
 
+    // Extract fact checks from successful verifications
+    const allFactChecks: FactCheck[] = [];
+    for (const result of claimResults) {
+      if (result.status === 'success' && result.factChecks) {
+        allFactChecks.push(...result.factChecks);
+      }
+    }
+
     // Filter to show results with sufficient confidence (>= 0.8)
-    const filteredFactChecks = factChecks.filter(
+    const filteredFactChecks = allFactChecks.filter(
       check => check.confidence >= CONFIDENCE_THRESHOLDS.MIN_CONFIDENCE
     );
 
+    const hasFailures = claimResults.some(r => r.status === 'failed');
+
     logger.info('Filtered fact checks by confidence', {
-      totalChecks: factChecks.length,
+      totalChecks: allFactChecks.length,
       filteredChecks: filteredFactChecks.length,
       minConfidence: CONFIDENCE_THRESHOLDS.MIN_CONFIDENCE,
       elapsedMs: getElapsedMs(processStart),
@@ -415,10 +496,18 @@ export async function checkFacts(text: string): Promise<FactCheck[]> {
     logger.info('Fact-check process completed', {
       elapsedMs: getElapsedMs(processStart),
       totalClaims: claimsToVerify.length,
+      successfulClaims: claimResults.filter(r => r.status === 'success').length,
+      failedClaims: claimResults.filter(r => r.status === 'failed').length,
       returnedChecks: filteredFactChecks.length,
+      hasFailures,
     });
 
-    return filteredFactChecks;
+    return {
+      original_text: text,
+      fact_checks: filteredFactChecks,
+      claim_results: claimResults,
+      has_failures: hasFailures,
+    };
   } catch (error) {
     logger.error('Error checking facts', error);
 

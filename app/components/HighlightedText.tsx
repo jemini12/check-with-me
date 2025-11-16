@@ -1,13 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { FactCheck } from '../lib/types';
+import { FactCheck, ClaimVerificationResult } from '../lib/types';
 import BottomSheet from './BottomSheet';
+import { RetryButton } from './RetryButton';
 
 interface HighlightedTextProps {
   text: string;
   factChecks: FactCheck[];
+  claimResults?: ClaimVerificationResult[];
+  hasFailures?: boolean;
   onShare?: () => void;
+  onRetry?: (claim: string) => Promise<void>;
 }
 
 interface TextSegment {
@@ -15,7 +19,14 @@ interface TextSegment {
   factCheck?: FactCheck;
 }
 
-export default function HighlightedText({ text, factChecks, onShare }: HighlightedTextProps) {
+export default function HighlightedText({
+  text,
+  factChecks,
+  claimResults,
+  hasFailures,
+  onShare,
+  onRetry
+}: HighlightedTextProps) {
   const [selectedFactCheck, setSelectedFactCheck] = useState<FactCheck | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
@@ -83,7 +94,9 @@ export default function HighlightedText({ text, factChecks, onShare }: Highlight
     return isAccurate ? 'border-green-400' : 'border-red-400';
   };
 
-  if (factChecks.length === 0) {
+  const failedClaims = claimResults?.filter(r => r.status === 'failed') || [];
+
+  if (factChecks.length === 0 && failedClaims.length === 0) {
     return (
       <div className="w-full p-4 border border-gray-200 rounded">
         <p className="text-sm text-gray-900">No verifiable claims found with sufficient consensus from sources.</p>
@@ -93,25 +106,57 @@ export default function HighlightedText({ text, factChecks, onShare }: Highlight
 
   return (
     <div className="w-full space-y-4">
-      <div className="p-6 border border-gray-200 rounded">
-        <div className="text-gray-900 leading-relaxed whitespace-pre-wrap">
-          {segments.map((segment, index) => {
-            if (segment.factCheck) {
-              return (
-                <span
-                  key={index}
-                  className={`${getHighlightColor(segment.factCheck.is_accurate, segment.factCheck.confidence)} cursor-pointer border-b-2 ${getBorderColor(segment.factCheck.is_accurate)}`}
-                  onClick={() => setSelectedFactCheck(segment.factCheck!)}
-                  title={segment.factCheck.reason}
-                >
-                  {segment.text}
-                </span>
-              );
-            }
-            return <span key={index}>{segment.text}</span>;
-          })}
+      {factChecks.length > 0 && (
+        <div className="p-6 border border-gray-200 rounded">
+          <div className="text-gray-900 leading-relaxed whitespace-pre-wrap">
+            {segments.map((segment, index) => {
+              if (segment.factCheck) {
+                return (
+                  <span
+                    key={index}
+                    className={`${getHighlightColor(segment.factCheck.is_accurate, segment.factCheck.confidence)} cursor-pointer border-b-2 ${getBorderColor(segment.factCheck.is_accurate)}`}
+                    onClick={() => setSelectedFactCheck(segment.factCheck!)}
+                    title={segment.factCheck.reason}
+                  >
+                    {segment.text}
+                  </span>
+                );
+              }
+              return <span key={index}>{segment.text}</span>;
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {hasFailures && failedClaims.length > 0 && (
+        <div className="p-4 border border-yellow-200 rounded bg-yellow-50">
+          <div className="flex items-start gap-2 mb-3">
+            <span className="text-yellow-600">⚠️</span>
+            <div>
+              <p className="text-sm font-semibold text-yellow-800">
+                Partial Results
+              </p>
+              <p className="text-xs text-yellow-700 mt-1">
+                Some claims could not be verified. {onRetry ? 'You can retry them below.' : ''}
+              </p>
+            </div>
+          </div>
+
+          {onRetry && (
+            <div className="space-y-2">
+              {failedClaims.map((result, index) => (
+                <RetryButton
+                  key={index}
+                  claim={result.claim}
+                  errorMessage={result.error?.message || 'Unknown error'}
+                  retryable={result.error?.retryable ?? true}
+                  onRetry={onRetry}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="p-4 border border-gray-200 rounded bg-gray-50">
         <div className="flex items-start justify-between gap-4 mb-3">

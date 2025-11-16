@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkFacts } from '../../lib/fact-checker';
-import { FactCheckResponse } from '../../lib/types';
 import { validateFactCheckInput } from '../../lib/validation';
 import { logger } from '../../lib/logger';
 import { isAppError, ValidationError, getErrorMessage } from '../../lib/errors';
@@ -96,19 +95,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Perform fact-checking with web search
-    const factChecks = await checkFacts(text);
-
-    // Build response
-    const response: FactCheckResponse = {
-      original_text: text,
-      fact_checks: factChecks,
-    };
+    const response = await checkFacts(text);
 
     const responseTimeMs = Date.now() - startTime;
 
     logger.info('Fact-check request completed successfully', {
       textLength: text.length,
-      factChecksFound: factChecks.length,
+      factChecksFound: response.fact_checks.length,
+      hasFailures: response.has_failures,
+      failedClaims: response.claim_results?.filter(r => r.status === 'failed').length || 0,
       responseTimeMs,
     });
 

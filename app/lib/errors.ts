@@ -59,6 +59,33 @@ export class ProcessingError extends AppError {
 }
 
 /**
+ * Error thrown when web search fails
+ */
+export class SearchError extends AppError {
+  constructor(message: string, details?: unknown) {
+    super(message, 'SEARCH_ERROR', 503, details);
+  }
+}
+
+/**
+ * Error thrown when OpenAI API fails
+ */
+export class APIError extends AppError {
+  constructor(message: string, details?: unknown) {
+    super(message, 'API_ERROR', 502, details);
+  }
+}
+
+/**
+ * Error thrown when requests timeout
+ */
+export class TimeoutError extends AppError {
+  constructor(message: string, details?: unknown) {
+    super(message, 'TIMEOUT_ERROR', 504, details);
+  }
+}
+
+/**
  * Type guard to check if an error is an AppError
  */
 export function isAppError(error: unknown): error is AppError {

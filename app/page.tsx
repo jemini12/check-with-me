@@ -153,6 +153,12 @@ function HomeContent() {
     }
   };
 
+  const handleRetryClaim = async (_claim: string) => {
+    // Re-run the full fact-check for now
+    // In the future, this could be optimized to only retry the specific claim
+    await handleCheckFacts(lastCheckedText);
+  };
+
   return (
     <main id="main-content" className="min-h-screen bg-white py-10 px-4">
       <div className="max-w-6xl mx-auto">
@@ -221,7 +227,10 @@ function HomeContent() {
               <HighlightedText
                 text={result.original_text}
                 factChecks={result.fact_checks}
+                claimResults={result.claim_results}
+                hasFailures={result.has_failures}
                 onShare={handleShare}
+                onRetry={handleRetryClaim}
               />
             </div>
           )}
