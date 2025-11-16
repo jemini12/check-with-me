@@ -42,7 +42,6 @@ Output: ["Eiffel Tower height meters", "Eiffel Tower 324 meters official height"
           content: `Generate search queries for this claim: "${claim}"`,
         },
       ],
-      temperature: 0.3,
     });
 
     const content = response.choices[0]?.message?.content?.trim();
