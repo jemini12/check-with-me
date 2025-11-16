@@ -34,14 +34,14 @@ export default function TextInput({ onCheckFacts, isLoading, text: controlledTex
   return (
     <form onSubmit={handleSubmit} className="w-full space-y-3">
       <label htmlFor="text-input" className="sr-only">
-        Check a claim
+        Check with me
       </label>
       <textarea
         id="text-input"
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Paste text to verify…"
+        placeholder="Paste text to check with me…"
         className="w-full h-56 border border-black/10 rounded-md px-4 py-3 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black"
         disabled={isLoading}
         maxLength={MAX_CHARACTERS + 100}

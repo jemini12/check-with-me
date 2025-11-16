@@ -26,7 +26,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastCheckedText, setLastCheckedText] = useState<string>('');
-  const TITLE_TEXT = 'Verify claims.';
+  const TITLE_TEXT = 'Check with me.';
   const [typedTitle, setTypedTitle] = useState('');
   const [typingStarted, setTypingStarted] = useState(false);
   const [showCaret, setShowCaret] = useState(true);

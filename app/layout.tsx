@@ -2,10 +2,10 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Verify claims.",
-  description: "Detecting misinformation",
-  keywords: ["fact check", "AI", "misinformation", "truth", "verification", "verify", "claims"],
-  authors: [{ name: "Fact Checker Team" }],
+  title: "Check with me.",
+  description: "Check facts and detect misinformation",
+  keywords: ["fact check", "AI", "misinformation", "truth", "verification", "check", "claims"],
+  authors: [{ name: "Check with me" }],
 };
 
 export const viewport: Viewport = {
