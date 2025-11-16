@@ -4,7 +4,8 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import TextInput from './components/TextInput';
 import HighlightedText from './components/HighlightedText';
-import { FactCheckResponse, ShareResponse } from './lib/types';
+import { FactCheckResponse, ShareResponse, ProgressEvent } from './lib/types';
+import { ProgressIndicator } from './components/ProgressIndicator';
 
 // Loading skeleton component
 function LoadingSkeleton() {
@@ -29,6 +30,7 @@ function HomeContent() {
   const [error, setError] = useState<string | null>(null);
   const [lastCheckedText, setLastCheckedText] = useState<string>('');
   const [isSharedResult, setIsSharedResult] = useState(false);
+  const [progressEvent, setProgressEvent] = useState<ProgressEvent | null>(null);
   const TITLE_TEXT = 'Check with me.';
   const [typedTitle, setTypedTitle] = useState('');
   const [typingStarted, setTypingStarted] = useState(false);
@@ -89,6 +91,7 @@ function HomeContent() {
     setIsLoading(true);
     setError(null);
     setResult(null);
+    setProgressEvent(null);
     setLastCheckedText(text);
 
     try {
@@ -96,6 +99,7 @@ function HomeContent() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
         },
         body: JSON.stringify({ text }),
       });
@@ -105,12 +109,58 @@ function HomeContent() {
         throw new Error(errorData.error || 'Fact-check failed');
       }
 
-      const data: FactCheckResponse = await response.json();
-      setResult(data);
+      // Check if response is streaming
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('text/event-stream')) {
+        // Handle SSE streaming
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (!reader) {
+          throw new Error('Failed to get response reader');
+        }
+
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // Process complete SSE messages
+          const lines = buffer.split('\n\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const eventData = line.slice(6);
+              try {
+                const event: ProgressEvent = JSON.parse(eventData);
+                setProgressEvent(event);
+
+                // Handle different event types
+                if (event.type === 'complete' && event.data?.result) {
+                  setResult(event.data.result);
+                } else if (event.type === 'error') {
+                  throw new Error(event.message || 'Fact-check failed');
+                }
+              } catch (parseError) {
+                console.error('Failed to parse SSE event:', parseError);
+              }
+            }
+          }
+        }
+      } else {
+        // Fallback to standard JSON response
+        const data: FactCheckResponse = await response.json();
+        setResult(data);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
+      setProgressEvent(null);
     }
   };
 
@@ -220,7 +270,13 @@ function HomeContent() {
             </div>
           )}
 
-          {isLoading && <LoadingSkeleton />}
+          {isLoading && progressEvent && (
+            <div className="mt-8 animate-slide-up">
+              <ProgressIndicator event={progressEvent} />
+            </div>
+          )}
+
+          {isLoading && !progressEvent && <LoadingSkeleton />}
 
           {result && !isLoading && (
             <div id="results-section" className="mt-8 animate-slide-up">

@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { FactCheck, Source, ClaimVerificationResult, FactCheckResponse } from './types';
+import { FactCheck, Source, ClaimVerificationResult, FactCheckResponse, ProgressEvent } from './types';
 import { searchWeb } from './web-search';
 import { OPENAI_CONFIG, ERROR_MESSAGES, CONFIDENCE_THRESHOLDS } from './config';
 import { getOpenAIApiKey, getOpenAIModel } from './env';
@@ -382,55 +382,16 @@ async function verifyClaim(
 }
 
 /**
- * Verifies all claims with their respective search results
- * Returns both successful and failed verification results
- */
-async function verifyAllClaims(
-  openai: OpenAI,
-  claims: ClaimToVerify[],
-  searchResults: Source[][],
-  modelName: string,
-  originalText: string,
-  languageInstruction: string
-): Promise<ClaimVerificationResult[]> {
-  const stepStart = Date.now();
-  logger.info('Step 3: Verifying claims with search results', { claimCount: claims.length });
-
-  const verificationPromises = claims.map((claim, index) =>
-    verifyClaim(
-      openai,
-      claim,
-      searchResults[index],
-      modelName,
-      originalText,
-      index,
-      claims.length,
-      languageInstruction
-    )
-  );
-
-  const allResults = await Promise.all(verificationPromises);
-
-  const successCount = allResults.filter(r => r.status === 'success').length;
-  const failureCount = allResults.filter(r => r.status === 'failed').length;
-
-  logger.info('Verification complete', {
-    successfulClaims: successCount,
-    failedClaims: failureCount,
-    totalClaims: allResults.length,
-    elapsedMs: getElapsedMs(stepStart),
-  });
-
-  return allResults;
-}
-
-/**
  * Main fact-checking function that orchestrates the entire process
  * @param text - The text to fact-check
+ * @param onProgress - Optional callback for progress events
  * @returns FactCheckResponse with results and error information
  * @throws {AppError} If the fact-checking process fails
  */
-export async function checkFacts(text: string): Promise<FactCheckResponse> {
+export async function checkFacts(
+  text: string,
+  onProgress?: (event: ProgressEvent) => void
+): Promise<FactCheckResponse> {
   try {
     const processStart = Date.now();
     const openai = createOpenAIClient();
@@ -446,10 +407,25 @@ export async function checkFacts(text: string): Promise<FactCheckResponse> {
       detectedLanguage: detectedLanguage.name,
     });
 
+    onProgress?.({ type: 'started', message: 'Initializing fact-check...' });
+
     // Step 1: Identify claims that need verification
+    onProgress?.({ type: 'screening', message: 'Extracting verifiable claims...' });
     const claimsToVerify = await performInitialScreening(openai, text, modelName, languageInstruction);
 
     if (claimsToVerify.length === 0) {
+      onProgress?.({
+        type: 'complete',
+        message: 'No verifiable claims found',
+        data: {
+          result: {
+            original_text: text,
+            fact_checks: [],
+            claim_results: [],
+            has_failures: false,
+          },
+        },
+      });
       return {
         original_text: text,
         fact_checks: [],
@@ -458,18 +434,57 @@ export async function checkFacts(text: string): Promise<FactCheckResponse> {
       };
     }
 
+    onProgress?.({
+      type: 'claims_identified',
+      message: `Found ${claimsToVerify.length} claim(s) to verify`,
+      data: {
+        claims: claimsToVerify.map(c => c.claim),
+        total: claimsToVerify.length,
+      },
+    });
+
     // Step 2: Search web for each claim
+    onProgress?.({ type: 'searching', message: 'Searching web for evidence...' });
     const allSearchResults = await searchForClaims(openai, claimsToVerify, modelName);
 
     // Step 3: Verify each claim with its search results
-    const claimResults = await verifyAllClaims(
-      openai,
-      claimsToVerify,
-      allSearchResults,
-      modelName,
-      text,
-      languageInstruction
-    );
+    const claimResults: ClaimVerificationResult[] = [];
+    for (let i = 0; i < claimsToVerify.length; i++) {
+      const claim = claimsToVerify[i];
+      const searchResults = allSearchResults[i];
+
+      onProgress?.({
+        type: 'verifying',
+        message: `Verifying claim ${i + 1} of ${claimsToVerify.length}`,
+        data: {
+          currentClaim: claim.claim,
+          current: i + 1,
+          total: claimsToVerify.length,
+        },
+      });
+
+      const result = await verifyClaim(
+        openai,
+        claim,
+        searchResults,
+        modelName,
+        text,
+        i,
+        claimsToVerify.length,
+        languageInstruction
+      );
+
+      claimResults.push(result);
+
+      onProgress?.({
+        type: 'claim_complete',
+        message: result.status === 'success' ? 'Claim verified' : 'Verification failed',
+        data: {
+          current: i + 1,
+          total: claimsToVerify.length,
+        },
+      });
+    }
 
     // Extract fact checks from successful verifications
     const allFactChecks: FactCheck[] = [];
@@ -502,14 +517,33 @@ export async function checkFacts(text: string): Promise<FactCheckResponse> {
       hasFailures,
     });
 
-    return {
+    const finalResult: FactCheckResponse = {
       original_text: text,
       fact_checks: filteredFactChecks,
       claim_results: claimResults,
       has_failures: hasFailures,
     };
+
+    onProgress?.({
+      type: 'complete',
+      message: 'Fact-check complete!',
+      data: { result: finalResult },
+    });
+
+    return finalResult;
   } catch (error) {
     logger.error('Error checking facts', error);
+
+    onProgress?.({
+      type: 'error',
+      message: 'Fact-check failed',
+      data: {
+        error: {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          code: isAppError(error) ? error.code : 'UNKNOWN_ERROR',
+        },
+      },
+    });
 
     // Convert to AppError and re-throw
     throw toAppError(error, ERROR_MESSAGES.FACT_CHECK_FAILED);

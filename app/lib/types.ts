@@ -144,3 +144,54 @@ export interface SharedCheck {
   /** When this was created */
   created_at: string;
 }
+
+/**
+ * Progress event type for streaming fact-check updates
+ */
+export type ProgressEventType =
+  | 'started'
+  | 'screening'
+  | 'claims_identified'
+  | 'searching'
+  | 'verifying'
+  | 'claim_complete'
+  | 'complete'
+  | 'error';
+
+/**
+ * Progress event data for streaming updates
+ */
+export interface ProgressEvent {
+  /** Type of progress event */
+  type: ProgressEventType;
+
+  /** Optional message */
+  message?: string;
+
+  /** Optional data payload */
+  data?: {
+    /** Claims identified during screening */
+    claims?: string[];
+
+    /** Current claim being processed */
+    currentClaim?: string;
+
+    /** Progress count (e.g., claim 1 of 3) */
+    current?: number;
+
+    /** Total count */
+    total?: number;
+
+    /** Completed fact-check result for a claim */
+    factCheck?: FactCheck;
+
+    /** Final result */
+    result?: FactCheckResponse;
+
+    /** Error details */
+    error?: {
+      message: string;
+      code: string;
+    };
+  };
+}

@@ -5,6 +5,7 @@ import { logger } from '../../lib/logger';
 import { isAppError, ValidationError, getErrorMessage } from '../../lib/errors';
 import { ERROR_MESSAGES } from '../../lib/config';
 import { logFactCheck, getFromHistory, generateSessionId, hashIp } from '../../lib/history';
+import { ProgressEvent } from '../../lib/types';
 
 /**
  * Creates an error response with appropriate status code
@@ -55,7 +56,7 @@ async function parseAndValidateRequest(request: NextRequest): Promise<string> {
 
 /**
  * POST endpoint for fact-checking text
- * Validates input, performs fact-checking, and returns results
+ * Supports both streaming (SSE) and standard JSON responses
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const startTime = Date.now();
@@ -67,8 +68,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const sessionId = generateSessionId(ip, userAgent);
   const ipHash = hashIp(ip);
 
+  // Check if client accepts streaming
+  const acceptHeader = request.headers.get('accept') || '';
+  const wantsStream = acceptHeader.includes('text/event-stream');
+
   try {
-    logger.info('Received fact-check request');
+    logger.info('Received fact-check request', { wantsStream });
 
     // Parse and validate request
     text = await parseAndValidateRequest(request);
@@ -91,10 +96,101 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         userAgent: userAgent || undefined,
       });
 
+      // For streaming requests, send cached result as complete event
+      if (wantsStream) {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            // Send complete event with cached result
+            const event: ProgressEvent = {
+              type: 'complete',
+              message: 'Loaded from cache',
+              data: { result: cachedResult },
+            };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+            controller.close();
+          },
+        });
+
+        return new NextResponse(stream, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            Connection: 'keep-alive',
+          },
+        });
+      }
+
       return NextResponse.json(cachedResult);
     }
 
-    // Perform fact-checking with web search
+    // Handle streaming response
+    if (wantsStream) {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            // Perform fact-checking with progress callback
+            const response = await checkFacts(text, (event: ProgressEvent) => {
+              // Send progress event
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+            });
+
+            const responseTimeMs = Date.now() - startTime;
+
+            // Log to history
+            await logFactCheck({
+              originalText: text,
+              result: response,
+              responseTimeMs,
+              sessionId,
+              ipHash: ipHash || undefined,
+              userAgent: userAgent || undefined,
+            });
+
+            logger.info('Streaming fact-check completed', { responseTimeMs });
+          } catch (error) {
+            // Send error event
+            const errorEvent: ProgressEvent = {
+              type: 'error',
+              message: getErrorMessage(error),
+              data: {
+                error: {
+                  message: getErrorMessage(error),
+                  code: isAppError(error) ? error.code : 'UNKNOWN_ERROR',
+                },
+              },
+            };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(errorEvent)}\n\n`));
+
+            // Log error
+            const responseTimeMs = Date.now() - startTime;
+            await logFactCheck({
+              originalText: text,
+              result: { original_text: text, fact_checks: [] },
+              responseTimeMs,
+              sessionId,
+              ipHash: ipHash || undefined,
+              userAgent: userAgent || undefined,
+              isError: true,
+              errorMessage: getErrorMessage(error),
+            });
+          } finally {
+            controller.close();
+          }
+        },
+      });
+
+      return new NextResponse(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        },
+      });
+    }
+
+    // Standard JSON response
     const response = await checkFacts(text);
 
     const responseTimeMs = Date.now() - startTime;
