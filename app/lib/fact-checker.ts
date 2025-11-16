@@ -17,6 +17,7 @@ import {
 } from './validation';
 import { ProcessingError, toAppError } from './errors';
 import { detectLanguage, getLanguageInstruction } from './language-detect';
+import { generateSearchQueries } from './translation';
 
 const getElapsedMs = (startTime: number) => Date.now() - startTime;
 
@@ -120,20 +121,57 @@ async function performInitialScreening(
 
 /**
  * Searches the web for all claims in parallel
+ * Uses LLM to generate optimized search queries
  * Returns array of search results corresponding to each claim
  */
-async function searchForClaims(claims: ClaimToVerify[]): Promise<Source[][]> {
+async function searchForClaims(
+  openai: OpenAI,
+  claims: ClaimToVerify[],
+  modelName: string
+): Promise<Source[][]> {
   const stepStart = Date.now();
   logger.info('Step 2: Searching web for verification', { claimCount: claims.length });
 
-  logger.debug('Search queries', { claims: claims.map(c => c.claim) });
+  const searchPromises = claims.map(async ({ claim }) => {
+    try {
+      // Generate optimized search queries using LLM
+      const searchQueries = await generateSearchQueries(openai, claim, modelName);
 
-  const searchPromises = claims.map(({ claim }) =>
-    searchWeb(claim).catch((error) => {
+      logger.debug('Generated search queries', {
+        claim: claim.substring(0, 50),
+        queries: searchQueries,
+      });
+
+      // Search with each query in parallel
+      const searchResults = await Promise.all(
+        searchQueries.map(query => searchWeb(query).catch(() => []))
+      );
+
+      // Merge results, deduplicate by URL
+      const urlSet = new Set<string>();
+      const mergedResults: Source[] = [];
+
+      for (const results of searchResults) {
+        for (const result of results) {
+          if (!urlSet.has(result.url)) {
+            urlSet.add(result.url);
+            mergedResults.push(result);
+          }
+        }
+      }
+
+      logger.debug('Multi-query search completed', {
+        claim: claim.substring(0, 50),
+        queriesUsed: searchQueries.length,
+        totalResults: mergedResults.length,
+      });
+
+      return mergedResults;
+    } catch (error) {
       logger.warn('Search failed for claim, continuing with empty results', { claim, error });
       return [];
-    })
-  );
+    }
+  });
 
   const allSearchResults = await Promise.all(searchPromises);
 
@@ -350,7 +388,7 @@ export async function checkFacts(text: string): Promise<FactCheck[]> {
     }
 
     // Step 2: Search web for each claim
-    const allSearchResults = await searchForClaims(claimsToVerify);
+    const allSearchResults = await searchForClaims(openai, claimsToVerify, modelName);
 
     // Step 3: Verify each claim with its search results
     const factChecks = await verifyAllClaims(
