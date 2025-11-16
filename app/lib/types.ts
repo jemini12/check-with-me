@@ -70,3 +70,45 @@ export interface ErrorResponse {
   /** Error code for programmatic handling */
   code: string;
 }
+
+/**
+ * Request to create a shareable link
+ */
+export interface ShareRequest {
+  /** The original prompt text */
+  prompt: string;
+
+  /** The fact-check result to share */
+  result: FactCheckResponse;
+}
+
+/**
+ * Response from creating a shareable link
+ */
+export interface ShareResponse {
+  /** The unique ID of the shared check */
+  shareId: string;
+
+  /** The full shareable URL */
+  shareUrl: string;
+}
+
+/**
+ * Shared check data
+ */
+export interface SharedCheck {
+  /** Unique identifier */
+  id: string;
+
+  /** The prompt text */
+  prompt: string;
+
+  /** Cached fact-check result */
+  cached_result: FactCheckResponse;
+
+  /** Number of times this has been viewed */
+  view_count: number;
+
+  /** When this was created */
+  created_at: string;
+}

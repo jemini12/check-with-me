@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import TextInput from './components/TextInput';
 import HighlightedText from './components/HighlightedText';
-import { FactCheckResponse } from './lib/types';
+import { FactCheckResponse, ShareResponse } from './lib/types';
 
 // Loading skeleton component
 function LoadingSkeleton() {
@@ -21,11 +22,13 @@ function LoadingSkeleton() {
   );
 }
 
-export default function Home() {
+function HomeContent() {
+  const searchParams = useSearchParams();
   const [result, setResult] = useState<FactCheckResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastCheckedText, setLastCheckedText] = useState<string>('');
+  const [isSharedResult, setIsSharedResult] = useState(false);
   const TITLE_TEXT = 'Check with me.';
   const [typedTitle, setTypedTitle] = useState('');
   const [typingStarted, setTypingStarted] = useState(false);
@@ -52,7 +55,37 @@ export default function Home() {
     return () => clearInterval(caretInterval);
   }, []);
 
+  // Handle share query parameter
+  useEffect(() => {
+    const shareId = searchParams.get('share');
+    if (!shareId) return;
+
+    const loadSharedResult = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(`/api/share/${shareId}`);
+        if (!response.ok) {
+          throw new Error('Failed to load shared result');
+        }
+
+        const data = await response.json();
+        setLastCheckedText(data.prompt);
+        setResult(data.result);
+        setIsSharedResult(true);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load shared result');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSharedResult();
+  }, [searchParams]);
+
   const handleCheckFacts = async (text: string) => {
+    setIsSharedResult(false);
     setIsLoading(true);
     setError(null);
     setResult(null);
@@ -91,6 +124,35 @@ export default function Home() {
     setError(null);
   };
 
+  const handleShare = async () => {
+    if (!result || !lastCheckedText) return;
+
+    try {
+      const response = await fetch('/api/share', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: lastCheckedText,
+          result: result,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create share link');
+      }
+
+      const data: ShareResponse = await response.json();
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(data.shareUrl);
+    } catch (err) {
+      console.error('Share failed:', err);
+      throw err;
+    }
+  };
+
   return (
     <main id="main-content" className="min-h-screen bg-white py-10 px-4">
       <div className="max-w-6xl mx-auto">
@@ -110,9 +172,20 @@ export default function Home() {
 
         {/* Input Section */}
         <div className="max-w-3xl mx-auto">
+          {isSharedResult && result && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2 text-sm">
+              <svg className="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              <span className="text-blue-900">Viewing shared result</span>
+            </div>
+          )}
+
           <TextInput
             onCheckFacts={handleCheckFacts}
             isLoading={isLoading}
+            text={lastCheckedText}
+            onTextChange={setLastCheckedText}
           />
 
           {error && (
@@ -148,11 +221,20 @@ export default function Home() {
               <HighlightedText
                 text={result.original_text}
                 factChecks={result.fact_checks}
+                onShare={handleShare}
               />
             </div>
           )}
         </div>
       </div>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<LoadingSkeleton />}>
+      <HomeContent />
+    </Suspense>
   );
 }

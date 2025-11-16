@@ -7,6 +7,7 @@ import BottomSheet from './BottomSheet';
 interface HighlightedTextProps {
   text: string;
   factChecks: FactCheck[];
+  onShare?: () => void;
 }
 
 interface TextSegment {
@@ -14,8 +15,27 @@ interface TextSegment {
   factCheck?: FactCheck;
 }
 
-export default function HighlightedText({ text, factChecks }: HighlightedTextProps) {
+export default function HighlightedText({ text, factChecks, onShare }: HighlightedTextProps) {
   const [selectedFactCheck, setSelectedFactCheck] = useState<FactCheck | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(false);
+
+  const handleShare = async () => {
+    if (!onShare || isSharing) return;
+
+    setIsSharing(true);
+    setShareSuccess(false);
+
+    try {
+      await onShare();
+      setShareSuccess(true);
+      setTimeout(() => setShareSuccess(false), 3000);
+    } catch (error) {
+      console.error('Share failed:', error);
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   // Sort fact checks by start position
   const sortedFactChecks = [...factChecks].sort((a, b) => a.start - b.start);
@@ -94,7 +114,39 @@ export default function HighlightedText({ text, factChecks }: HighlightedTextPro
       </div>
 
       <div className="p-4 border border-gray-200 rounded bg-gray-50">
-        <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3">Legend</p>
+        <div className="flex items-start justify-between gap-4 mb-3">
+          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Legend</p>
+          {onShare && (
+            <button
+              onClick={handleShare}
+              disabled={isSharing}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {shareSuccess ? (
+                <>
+                  <svg className="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-green-600">Copied!</span>
+                </>
+              ) : isSharing ? (
+                <>
+                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span>Sharing...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                  </svg>
+                  <span>Share</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
         <div className="space-y-3 text-sm">
           <div className="flex items-center gap-3">
             <span className="inline-block w-4 h-4 bg-green-200 border-2 border-green-400 rounded"></span>
