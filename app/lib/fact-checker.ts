@@ -121,7 +121,7 @@ async function performInitialScreening(
 
 /**
  * Searches the web for all claims in parallel
- * Uses LLM to generate optimized search queries
+ * Uses LLM to generate optimized English search queries for better results
  * Returns array of search results corresponding to each claim
  */
 async function searchForClaims(
@@ -134,10 +134,14 @@ async function searchForClaims(
 
   const searchPromises = claims.map(async ({ claim }) => {
     try {
-      // Generate optimized search queries using LLM
+      logger.debug('Generating optimized search queries', {
+        claim: claim.substring(0, 50),
+      });
+
+      // Generate optimized English queries using LLM
       const searchQueries = await generateSearchQueries(openai, claim, modelName);
 
-      logger.debug('Generated search queries', {
+      logger.debug('Search queries generated', {
         claim: claim.substring(0, 50),
         queries: searchQueries,
       });
@@ -160,7 +164,7 @@ async function searchForClaims(
         }
       }
 
-      logger.debug('Multi-query search completed', {
+      logger.debug('Search completed', {
         claim: claim.substring(0, 50),
         queriesUsed: searchQueries.length,
         totalResults: mergedResults.length,
@@ -416,7 +420,7 @@ export async function checkFacts(
     if (claimsToVerify.length === 0) {
       onProgress?.({
         type: 'complete',
-        message: 'No verifiable claims found',
+        message: 'No factual claims to verify',
         data: {
           result: {
             original_text: text,

@@ -276,8 +276,6 @@ function HomeContent() {
             </div>
           )}
 
-          {isLoading && !progressEvent && <LoadingSkeleton />}
-
           {result && !isLoading && (
             <div id="results-section" className="mt-8 animate-slide-up">
               <HighlightedText

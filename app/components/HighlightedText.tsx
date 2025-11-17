@@ -98,8 +98,14 @@ export default function HighlightedText({
 
   if (factChecks.length === 0 && failedClaims.length === 0) {
     return (
-      <div className="w-full p-4 border border-gray-200 rounded">
-        <p className="text-sm text-gray-900">No verifiable claims found with sufficient consensus from sources.</p>
+      <div className="w-full p-6 border border-gray-200 rounded bg-gray-50">
+        <p className="text-sm text-gray-700 leading-relaxed">
+          I tried my best to verify this, but couldn't find enough reliable sources with consistent information.
+        </p>
+        <p className="text-sm text-gray-600 mt-2">
+          The claim might be too subjective, context-dependent, or there may not be enough authoritative sources
+          available online yet.
+        </p>
       </div>
     );
   }

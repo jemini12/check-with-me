@@ -138,15 +138,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
             const responseTimeMs = Date.now() - startTime;
 
-            // Log to history
-            await logFactCheck({
-              originalText: text,
-              result: response,
-              responseTimeMs,
-              sessionId,
-              ipHash: ipHash || undefined,
-              userAgent: userAgent || undefined,
-            });
+            // Don't cache if claims were found but all were below confidence threshold
+            const shouldCache = !(
+              response.claim_results &&
+              response.claim_results.length > 0 &&
+              response.fact_checks.length === 0
+            );
+
+            if (shouldCache) {
+              // Log to history
+              await logFactCheck({
+                originalText: text,
+                result: response,
+                responseTimeMs,
+                sessionId,
+                ipHash: ipHash || undefined,
+                userAgent: userAgent || undefined,
+              });
+            } else {
+              logger.info('Skipping cache - all results below confidence threshold', {
+                claimCount: response.claim_results?.length || 0,
+              });
+            }
 
             logger.info('Streaming fact-check completed', { responseTimeMs });
           } catch (error) {
@@ -203,15 +216,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       responseTimeMs,
     });
 
-    // Log to history
-    await logFactCheck({
-      originalText: text,
-      result: response,
-      responseTimeMs,
-      sessionId,
-      ipHash: ipHash || undefined,
-      userAgent: userAgent || undefined,
-    });
+    // Don't cache if claims were found but all were below confidence threshold
+    const shouldCache = !(
+      response.claim_results &&
+      response.claim_results.length > 0 &&
+      response.fact_checks.length === 0
+    );
+
+    if (shouldCache) {
+      // Log to history
+      await logFactCheck({
+        originalText: text,
+        result: response,
+        responseTimeMs,
+        sessionId,
+        ipHash: ipHash || undefined,
+        userAgent: userAgent || undefined,
+      });
+    } else {
+      logger.info('Skipping cache - all results below confidence threshold', {
+        claimCount: response.claim_results?.length || 0,
+      });
+    }
 
     return NextResponse.json(response);
   } catch (error) {
