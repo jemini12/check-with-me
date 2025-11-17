@@ -15,104 +15,57 @@ export function ProgressIndicator({ event }: ProgressIndicatorProps) {
     switch (event.type) {
       case 'started':
         return {
-          icon: '🔍',
           text: 'Initializing fact-check...',
-          color: 'text-blue-600',
-          bgColor: 'bg-blue-50',
         };
       case 'screening':
         return {
-          icon: '📝',
           text: 'Extracting verifiable claims...',
-          color: 'text-blue-600',
-          bgColor: 'bg-blue-50',
         };
       case 'claims_identified':
         return {
-          icon: '✓',
           text: `Found ${event.data?.claims?.length || 0} claim(s) to verify`,
-          color: 'text-green-600',
-          bgColor: 'bg-green-50',
         };
       case 'searching':
         return {
-          icon: '🔎',
           text: event.message || 'Searching web for evidence...',
-          color: 'text-purple-600',
-          bgColor: 'bg-purple-50',
         };
       case 'verifying':
         const current = event.data?.current || 0;
         const total = event.data?.total || 0;
         return {
-          icon: '⚖️',
           text: event.message || `Verifying claim ${current} of ${total}...`,
-          color: 'text-orange-600',
-          bgColor: 'bg-orange-50',
         };
       case 'claim_complete':
         return {
-          icon: '✓',
           text: event.message || 'Claim verified',
-          color: 'text-green-600',
-          bgColor: 'bg-green-50',
         };
       case 'complete':
         return {
-          icon: '🎉',
-          text: 'Fact-check complete!',
-          color: 'text-green-600',
-          bgColor: 'bg-green-50',
+          text: 'Fact-check complete',
         };
       case 'error':
         return {
-          icon: '⚠️',
           text: event.message || 'An error occurred',
-          color: 'text-red-600',
-          bgColor: 'bg-red-50',
         };
       default:
         return {
-          icon: '⏳',
           text: 'Processing...',
-          color: 'text-gray-600',
-          bgColor: 'bg-gray-50',
         };
     }
   };
 
   const stepInfo = getStepInfo();
+  const isError = event.type === 'error';
+  const isComplete = event.type === 'complete';
+  const showSpinner = !isError && !isComplete;
 
   return (
-    <div className={`p-4 border border-gray-200 rounded ${stepInfo.bgColor} animate-pulse-subtle`}>
+    <div className="p-6 border border-gray-200 rounded bg-white">
       <div className="flex items-center gap-3">
-        <span className="text-2xl" aria-hidden="true">
-          {stepInfo.icon}
-        </span>
-        <div className="flex-1">
-          <p className={`text-sm font-medium ${stepInfo.color}`}>
-            {stepInfo.text}
-          </p>
-          {event.data?.currentClaim && (
-            <p className="text-xs text-gray-600 mt-1">
-              {event.data.currentClaim}
-            </p>
-          )}
-          {event.type === 'claims_identified' && event.data?.claims && event.data.claims.length > 0 && (
-            <ul className="mt-2 space-y-1">
-              {event.data.claims.map((claim, index) => (
-                <li key={index} className="text-xs text-gray-700 flex items-start gap-2">
-                  <span className="text-green-500 flex-shrink-0">•</span>
-                  <span>{claim}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        {(event.type === 'screening' || event.type === 'searching' || event.type === 'verifying') && (
+        {showSpinner && (
           <div className="flex-shrink-0">
             <svg
-              className="w-5 h-5 animate-spin text-gray-500"
+              className="w-5 h-5 animate-spin text-gray-900"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -126,6 +79,26 @@ export function ProgressIndicator({ event }: ProgressIndicatorProps) {
             </svg>
           </div>
         )}
+        <div className="flex-1">
+          <p className="text-sm font-medium text-gray-900">
+            {stepInfo.text}
+          </p>
+          {event.data?.currentClaim && (
+            <p className="text-xs text-gray-600 mt-1">
+              {event.data.currentClaim}
+            </p>
+          )}
+          {event.type === 'claims_identified' && event.data?.claims && event.data.claims.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {event.data.claims.map((claim, index) => (
+                <li key={index} className="text-xs text-gray-700 flex items-start gap-2">
+                  <span className="text-gray-400 flex-shrink-0">•</span>
+                  <span>{claim}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );
