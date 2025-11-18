@@ -41,7 +41,7 @@ export default function TextInput({ onCheckFacts, isLoading, text: controlledTex
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Paste text to check with me…"
+        placeholder="Paste text or ask a question…"
         className="w-full h-56 border border-black/10 rounded-md px-4 py-3 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-black"
         disabled={isLoading}
         maxLength={MAX_CHARACTERS + 100}
@@ -61,7 +61,7 @@ export default function TextInput({ onCheckFacts, isLoading, text: controlledTex
             <button
               type="button"
               onClick={() => setText('')}
-              className="px-3 py-1.5 text-xs border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
             >
               Clear
             </button>

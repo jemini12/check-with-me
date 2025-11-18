@@ -95,7 +95,7 @@ function HomeContent() {
     setLastCheckedText(text);
 
     try {
-      const response = await fetch('/api/fact-check', {
+      const response = await fetch('/api/verify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -106,7 +106,7 @@ function HomeContent() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Fact-check failed');
+        throw new Error(errorData.error || 'Verification failed');
       }
 
       // Check if response is streaming
@@ -143,7 +143,7 @@ function HomeContent() {
                 if (event.type === 'complete' && event.data?.result) {
                   setResult(event.data.result);
                 } else if (event.type === 'error') {
-                  throw new Error(event.message || 'Fact-check failed');
+                  throw new Error(event.message || 'Verification failed');
                 }
               } catch (parseError) {
                 console.error('Failed to parse SSE event:', parseError);

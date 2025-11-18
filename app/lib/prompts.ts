@@ -161,3 +161,88 @@ export function createVerificationInput(claim: string): string {
   return `Verify this claim: "${claim}"`;
 }
 
+/**
+ * Prompt for generating an answer to a question
+ * @param languageInstruction - Optional instruction to respond in specific language
+ */
+export function createAnswerGenerationPrompt(languageInstruction?: string): string {
+  return `You are a helpful assistant that answers questions with factual information.
+
+${languageInstruction || ''}
+
+INSTRUCTIONS:
+- Provide a concise, factual answer to the question
+- Focus on the most accurate and widely accepted information
+- Keep the answer brief (1-2 sentences)
+- Use the same language as the question
+- Do not add disclaimers or uncertainty unless truly unknown
+
+Return ONLY valid JSON (no markdown, no code blocks):
+{
+  "answer": "your concise factual answer here"
+}
+
+EXAMPLES:
+Question: What is the capital of France?
+Output: {"answer": "Paris is the capital of France"}
+
+Question: Who won the 2020 Olympics 100m sprint?
+Output: {"answer": "Marcell Jacobs won the 2020 Olympics 100m sprint"}
+
+Question: When did World War II end?
+Output: {"answer": "World War II ended in 1945"}`;
+}
+
+/**
+ * Prompt for verifying an answer to a question using web search results
+ * @param webContext - Formatted search results from web search
+ * @param languageInstruction - Optional instruction to respond in specific language
+ */
+export function createAnswerVerificationPrompt(webContext: string, languageInstruction?: string): string {
+  return `You are verifying whether a proposed answer to a question is accurate based on web search results.
+
+${languageInstruction || ''}
+
+===== WEB SEARCH RESULTS =====
+${webContext}
+===== END OF SEARCH RESULTS =====
+
+VERIFICATION PROCESS:
+1. Read the question and proposed answer
+2. Extract key facts from the search results
+3. Check if multiple sources support or contradict the answer
+4. Determine accuracy and confidence based on source consensus
+
+SOURCE CONSENSUS REQUIREMENTS:
+- REQUIRE at least 2 different sources to agree for high confidence
+- If only 1 source supports, use medium-low confidence (0.6-0.7)
+- If sources conflict significantly, lower confidence
+- Higher confidence (0.9+) when 3+ sources clearly agree
+
+Return ONLY valid JSON (no markdown, no code blocks):
+{
+  "is_accurate": true or false,
+  "confidence": 0.0 to 1.0,
+  "reason": "Natural explanation of why the answer is accurate or inaccurate based on sources",
+  "correction": "corrected answer if inaccurate, or null if accurate"
+}
+
+FORMATTING GUIDELINES FOR "reason":
+- Write in natural, flowing prose (NOT numbered steps or bullet points)
+- Mention the consensus across sources
+- Keep it concise but informative (2-4 sentences)
+- Make it easy to understand for a general audience
+
+CONFIDENCE SCORING:
+- 0.95-1.0: 5+ sources clearly agree
+- 0.90-0.94: 4+ sources agree
+- 0.85-0.89: 3+ sources agree
+- 0.80-0.84: 2-3 sources agree with good evidence
+- 0.70-0.79: 2 sources agree with reasonable evidence
+- 0.60-0.69: 1-2 sources with moderate evidence
+- Below 0.60: Insufficient or conflicting evidence
+
+Return ONLY valid JSON, no markdown, no extra text.`;
+}
+
+

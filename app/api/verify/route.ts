@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { checkFacts } from '../../lib/fact-checker';
+import { verifyInput } from '../../lib/verifier';
 import { validateFactCheckInput } from '../../lib/validation';
 import { logger } from '../../lib/logger';
 import { isAppError, ValidationError, getErrorMessage } from '../../lib/errors';
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const wantsStream = acceptHeader.includes('text/event-stream');
 
   try {
-    logger.info('Received fact-check request', { wantsStream });
+    logger.info('Received verification request', { wantsStream });
 
     // Parse and validate request
     text = await parseAndValidateRequest(request);
@@ -130,8 +130,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const stream = new ReadableStream({
         async start(controller) {
           try {
-            // Perform fact-checking with progress callback
-            const response = await checkFacts(text, (event: ProgressEvent) => {
+            // Perform verification with progress callback
+            const response = await verifyInput(text, (event: ProgressEvent) => {
               // Send progress event
               controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
             });
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
               });
             }
 
-            logger.info('Streaming fact-check completed', { responseTimeMs });
+            logger.info('Streaming verification completed', { responseTimeMs });
           } catch (error) {
             // Send error event
             const errorEvent: ProgressEvent = {
@@ -204,11 +204,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Standard JSON response
-    const response = await checkFacts(text);
+    const response = await verifyInput(text);
 
     const responseTimeMs = Date.now() - startTime;
 
-    logger.info('Fact-check request completed successfully', {
+    logger.info('Verification request completed successfully', {
       textLength: text.length,
       factChecksFound: response.fact_checks.length,
       hasFailures: response.has_failures,

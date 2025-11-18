@@ -76,22 +76,31 @@ export default function HighlightedText({
     segments.push({ text: text.slice(cursor) });
   }
 
-  const getHighlightColor = (isAccurate: boolean, confidence: number) => {
-    if (isAccurate) {
+  const getHighlightColor = (factCheck: FactCheck) => {
+    // Orange for questions (answers to user questions)
+    if (factCheck.is_question) {
+      if (factCheck.confidence >= 0.95) return 'bg-orange-200 hover:bg-orange-300';
+      if (factCheck.confidence >= 0.9) return 'bg-orange-100 hover:bg-orange-200';
+      return 'bg-orange-50 hover:bg-orange-100';
+    }
+
+    // Green/Red for claims
+    if (factCheck.is_accurate) {
       // Green for accurate claims
-      if (confidence >= 0.95) return 'bg-green-200 hover:bg-green-300';
-      if (confidence >= 0.9) return 'bg-green-100 hover:bg-green-200';
+      if (factCheck.confidence >= 0.95) return 'bg-green-200 hover:bg-green-300';
+      if (factCheck.confidence >= 0.9) return 'bg-green-100 hover:bg-green-200';
       return 'bg-green-50 hover:bg-green-100';
     } else {
       // Red for inaccurate claims
-      if (confidence >= 0.95) return 'bg-red-200 hover:bg-red-300';
-      if (confidence >= 0.9) return 'bg-red-100 hover:bg-red-200';
+      if (factCheck.confidence >= 0.95) return 'bg-red-200 hover:bg-red-300';
+      if (factCheck.confidence >= 0.9) return 'bg-red-100 hover:bg-red-200';
       return 'bg-red-50 hover:bg-red-100';
     }
   };
 
-  const getBorderColor = (isAccurate: boolean) => {
-    return isAccurate ? 'border-green-400' : 'border-red-400';
+  const getBorderColor = (factCheck: FactCheck) => {
+    if (factCheck.is_question) return 'border-orange-400';
+    return factCheck.is_accurate ? 'border-green-400' : 'border-red-400';
   };
 
   const failedClaims = claimResults?.filter(r => r.status === 'failed') || [];
@@ -120,7 +129,7 @@ export default function HighlightedText({
                 return (
                   <span
                     key={index}
-                    className={`${getHighlightColor(segment.factCheck.is_accurate, segment.factCheck.confidence)} cursor-pointer border-b-2 ${getBorderColor(segment.factCheck.is_accurate)}`}
+                    className={`${getHighlightColor(segment.factCheck)} cursor-pointer border-b-2 ${getBorderColor(segment.factCheck)}`}
                     onClick={() => setSelectedFactCheck(segment.factCheck!)}
                     title={segment.factCheck.reason}
                   >
@@ -200,6 +209,13 @@ export default function HighlightedText({
         </div>
         <div className="space-y-3 text-sm">
           <div className="flex items-center gap-3">
+            <span className="inline-block w-4 h-4 bg-orange-200 border-2 border-orange-400 rounded"></span>
+            <div>
+              <span className="font-semibold text-orange-700">Question & Answer</span>
+              <span className="text-gray-600"> - Generated answer for question</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
             <span className="inline-block w-4 h-4 bg-green-200 border-2 border-green-400 rounded"></span>
             <div>
               <span className="font-semibold text-green-700">Verified as Accurate</span>
@@ -225,9 +241,25 @@ export default function HighlightedText({
         {selectedFactCheck && (
           <>
             <div className="space-y-6">
-              <div className={`${selectedFactCheck.is_accurate ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-lg p-4`}>
-                <p className={`text-xs font-semibold ${selectedFactCheck.is_accurate ? 'text-green-600' : 'text-red-600'} uppercase tracking-wide mb-2`}>
-                  {selectedFactCheck.is_accurate ? 'Verified Claim' : 'Flagged Claim'}
+              <div className={`${
+                selectedFactCheck.is_question
+                  ? 'bg-orange-50 border-orange-200'
+                  : selectedFactCheck.is_accurate
+                  ? 'bg-green-50 border-green-200'
+                  : 'bg-red-50 border-red-200'
+              } border rounded-lg p-4`}>
+                <p className={`text-xs font-semibold ${
+                  selectedFactCheck.is_question
+                    ? 'text-orange-600'
+                    : selectedFactCheck.is_accurate
+                    ? 'text-green-600'
+                    : 'text-red-600'
+                } uppercase tracking-wide mb-2`}>
+                  {selectedFactCheck.is_question
+                    ? 'Answer to Question'
+                    : selectedFactCheck.is_accurate
+                    ? 'Verified Claim'
+                    : 'Flagged Claim'}
                 </p>
                 <p className="text-base text-gray-900 leading-relaxed">{selectedFactCheck.claim}</p>
               </div>
@@ -235,7 +267,9 @@ export default function HighlightedText({
               <div className="flex items-center gap-3">
                 <div className="flex-shrink-0">
                   <div className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-semibold ${
-                    selectedFactCheck.is_accurate
+                    selectedFactCheck.is_question
+                      ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                      : selectedFactCheck.is_accurate
                       ? 'bg-green-100 text-green-700 border border-green-300'
                       : 'bg-red-100 text-red-700 border border-red-300'
                   }`}>
@@ -243,7 +277,9 @@ export default function HighlightedText({
                   </div>
                 </div>
                 <p className="text-sm text-gray-500">
-                  {selectedFactCheck.is_accurate
+                  {selectedFactCheck.is_question
+                    ? 'Generated and verified answer'
+                    : selectedFactCheck.is_accurate
                     ? 'Confirmed by multiple sources'
                     : 'Contradicted by multiple sources'}
                 </p>

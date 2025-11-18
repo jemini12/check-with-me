@@ -25,6 +25,9 @@ export interface FactCheck {
 
   /** Web sources used to verify the claim */
   sources?: Source[];
+
+  /** Whether this is an answer to a question (for color coding) */
+  is_question?: boolean;
 }
 
 /**

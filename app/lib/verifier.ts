@@ -18,8 +18,34 @@ import {
 import { ProcessingError, toAppError, isAppError } from './errors';
 import { detectLanguage, getLanguageInstruction } from './language-detect';
 import { generateSearchQueries } from './translation';
+import { answerAndVerifyQuestion } from './question-answerer';
 
 const getElapsedMs = (startTime: number) => Date.now() - startTime;
+
+/**
+ * Detects if the input text is a question
+ * @param text - The input text to check
+ * @returns true if the text appears to be a question
+ */
+function isQuestion(text: string): boolean {
+  const trimmed = text.trim();
+
+  // Check if ends with question mark
+  if (trimmed.endsWith('?')) {
+    return true;
+  }
+
+  // Check if starts with common question words (case-insensitive)
+  const questionWords = [
+    'what', 'who', 'when', 'where', 'why', 'how',
+    'is', 'are', 'was', 'were', 'do', 'does', 'did',
+    'can', 'could', 'will', 'would', 'should',
+    'which', 'whose', 'whom',
+  ];
+
+  const firstWord = trimmed.split(/\s+/)[0]?.toLowerCase();
+  return questionWords.includes(firstWord);
+}
 
 /**
  * Creates an OpenAI client instance with validated configuration
@@ -386,13 +412,14 @@ async function verifyClaim(
 }
 
 /**
- * Main fact-checking function that orchestrates the entire process
- * @param text - The text to fact-check
+ * Main verification function that orchestrates the entire process
+ * Routes questions to question answering, and claims to claim verification
+ * @param text - The text to verify (question or claims)
  * @param onProgress - Optional callback for progress events
  * @returns FactCheckResponse with results and error information
- * @throws {AppError} If the fact-checking process fails
+ * @throws {AppError} If the verification process fails
  */
-export async function checkFacts(
+export async function verifyInput(
   text: string,
   onProgress?: (event: ProgressEvent) => void
 ): Promise<FactCheckResponse> {
@@ -412,6 +439,12 @@ export async function checkFacts(
     });
 
     onProgress?.({ type: 'started', message: 'Initializing fact-check...' });
+
+    // Detect if input is a question and route appropriately
+    if (isQuestion(text)) {
+      logger.info('Input detected as question, routing to question answerer');
+      return await answerAndVerifyQuestion(openai, text, modelName, languageInstruction, onProgress);
+    }
 
     // Step 1: Identify claims that need verification
     onProgress?.({ type: 'screening', message: 'Extracting verifiable claims...' });
