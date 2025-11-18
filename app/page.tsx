@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import TextInput from './components/TextInput';
 import HighlightedText from './components/HighlightedText';
 import { FactCheckResponse, ShareResponse, ProgressEvent } from './lib/types';
@@ -31,24 +32,56 @@ function HomeContent() {
   const [lastCheckedText, setLastCheckedText] = useState<string>('');
   const [isSharedResult, setIsSharedResult] = useState(false);
   const [progressEvent, setProgressEvent] = useState<ProgressEvent | null>(null);
-  const TITLE_TEXT = 'Check with me.';
+
+  // Multi-language titles
+  const TITLES = [
+    'Check with me.',      // English
+    '확인해 주세요.',       // Korean
+    '一緒に確認しよう。',   // Japanese
+    'Comprueba conmigo.',  // Spanish
+    'Vérifie avec moi.',   // French
+  ];
+
+  const [currentTitleIndex, setCurrentTitleIndex] = useState(0);
   const [typedTitle, setTypedTitle] = useState('');
   const [typingStarted, setTypingStarted] = useState(false);
   const [showCaret, setShowCaret] = useState(true);
 
+  // Multi-language typing effect
   useEffect(() => {
     setTypingStarted(true);
-    setTypedTitle('');
-    let index = 0;
-    const interval = window.setInterval(() => {
-      index += 1;
-      setTypedTitle(TITLE_TEXT.slice(0, index));
-      if (index >= TITLE_TEXT.length) {
-        clearInterval(interval);
+
+    const currentTitle = TITLES[currentTitleIndex];
+    let charIndex = 0;
+    let isCurrentlyDeleting = false;
+
+    const typeInterval = window.setInterval(() => {
+      if (!isCurrentlyDeleting) {
+        // Typing
+        charIndex += 1;
+        setTypedTitle(currentTitle.slice(0, charIndex));
+
+        if (charIndex >= currentTitle.length) {
+          // Finished typing, wait then start deleting
+          setTimeout(() => {
+            isCurrentlyDeleting = true;
+          }, 2000);
+        }
+      } else {
+        // Deleting
+        charIndex -= 1;
+        setTypedTitle(currentTitle.slice(0, charIndex));
+
+        if (charIndex <= 0) {
+          // Finished deleting, move to next title
+          setCurrentTitleIndex((prev) => (prev + 1) % TITLES.length);
+          clearInterval(typeInterval);
+        }
       }
-    }, 90);
-    return () => clearInterval(interval);
-  }, []);
+    }, isCurrentlyDeleting ? 50 : 90);
+
+    return () => clearInterval(typeInterval);
+  }, [currentTitleIndex]);
 
   useEffect(() => {
     const caretInterval = window.setInterval(() => {
@@ -84,6 +117,14 @@ function HomeContent() {
     };
 
     loadSharedResult();
+  }, [searchParams]);
+
+  // Handle example query parameter from help page
+  useEffect(() => {
+    const example = searchParams.get('example');
+    if (example) {
+      setLastCheckedText(example);
+    }
   }, [searchParams]);
 
   const handleCheckFacts = async (text: string) => {
@@ -213,17 +254,31 @@ function HomeContent() {
     <main id="main-content" className="min-h-screen bg-white py-10 px-4">
       <div className="max-w-6xl mx-auto">
         <header className="mb-12">
-          <h1 className="text-4xl sm:text-5xl font-semibold text-gray-900 flex items-center" suppressHydrationWarning>
-            {typingStarted ? typedTitle : TITLE_TEXT}
-            {typingStarted && (
-              <span
-                aria-hidden="true"
-                className={`ml-1 h-8 w-0.5 bg-gray-900 transition-opacity ${
-                  showCaret ? 'opacity-100' : 'opacity-0'
-                }`}
-              />
-            )}
-          </h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl sm:text-4xl font-semibold text-gray-900 flex items-center min-h-[2.5rem] sm:min-h-[3rem]" suppressHydrationWarning>
+              <span className="inline-block min-w-0">
+                {typingStarted ? typedTitle : TITLES[0]}
+                {!typedTitle && '\u00A0'}
+              </span>
+              {typingStarted && (
+                <span
+                  aria-hidden="true"
+                  className={`ml-1 h-7 w-0.5 bg-gray-900 transition-opacity ${
+                    showCaret ? 'opacity-100' : 'opacity-0'
+                  }`}
+                />
+              )}
+            </h1>
+            <Link
+              href="/help"
+              className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Help
+            </Link>
+          </div>
         </header>
 
         {/* Input Section */}
