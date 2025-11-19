@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { LanguageProvider } from "./contexts/LanguageContext";
+import { HtmlLangUpdater } from "./components/HtmlLangUpdater";
 
 export const metadata: Metadata = {
   title: "Check with me.",
@@ -26,10 +28,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <a href="#main-content" className="skip-to-main">
-          Skip to main content
-        </a>
-        {children}
+        <LanguageProvider>
+          <HtmlLangUpdater />
+          <a href="#main-content" className="skip-to-main">
+            Skip to main content
+          </a>
+          {children}
+        </LanguageProvider>
       </body>
     </html>
   );

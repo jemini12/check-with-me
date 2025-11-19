@@ -1,6 +1,7 @@
 'use client';
 
 import { ProgressEvent } from '../lib/types';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface ProgressIndicatorProps {
   /** Current progress event */
@@ -11,45 +12,55 @@ interface ProgressIndicatorProps {
  * Component that displays real-time progress during fact-checking
  */
 export function ProgressIndicator({ event }: ProgressIndicatorProps) {
+  const { t } = useLanguage();
+
   const getStepInfo = () => {
     switch (event.type) {
       case 'started':
         return {
-          text: 'Initializing fact-check...',
+          text: t('initializing'),
         };
       case 'screening':
         return {
-          text: 'Extracting verifiable claims...',
+          text: t('screening'),
         };
       case 'claims_identified':
         return {
-          text: `Found ${event.data?.claims?.length || 0} claim(s) to verify`,
+          text: `${t('claimsIdentified')}: ${event.data?.claims?.length || 0}`,
         };
       case 'searching':
         return {
-          text: event.message || 'Searching web for evidence...',
+          text: t('searching'),
         };
       case 'verifying':
         const current = event.data?.current || 0;
         const total = event.data?.total || 0;
+        const isQuestion = event.data?.isQuestion || false;
+
+        if (isQuestion) {
+          return {
+            text: t('answeringQuestion'),
+          };
+        }
+
         return {
-          text: event.message || `Verifying claim ${current} of ${total}...`,
+          text: current && total ? `${t('verifying')} (${current}/${total})` : t('verifying'),
         };
       case 'claim_complete':
         return {
-          text: event.message || 'Claim verified',
+          text: t('verifying'),
         };
       case 'complete':
         return {
-          text: 'Fact-check complete',
+          text: t('complete'),
         };
       case 'error':
         return {
-          text: event.message || 'An error occurred',
+          text: event.message || t('errorOccurred'),
         };
       default:
         return {
-          text: 'Processing...',
+          text: t('initializing'),
         };
     }
   };

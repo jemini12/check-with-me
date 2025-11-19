@@ -191,6 +191,9 @@ export interface ProgressEvent {
     /** Final result */
     result?: FactCheckResponse;
 
+    /** Whether this is answering a question */
+    isQuestion?: boolean;
+
     /** Error details */
     error?: {
       message: string;

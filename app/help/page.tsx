@@ -2,14 +2,17 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '../contexts/LanguageContext';
+import LanguageSwitch from '../components/LanguageSwitch';
 
 export default function HelpPage() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   const examples = [
     {
-      text: 'What is the capital of France?',
-      label: 'Question',
+      text: t('exampleQuestion1'),
+      label: t('question'),
       color: 'orange',
       bgColor: 'bg-orange-50',
       borderColor: 'border-orange-200',
@@ -17,8 +20,8 @@ export default function HelpPage() {
       dotColor: 'bg-orange-400',
     },
     {
-      text: 'Paris is the capital of France.',
-      label: 'True claim',
+      text: t('exampleClaim1'),
+      label: t('trueClaim'),
       color: 'green',
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
@@ -26,8 +29,8 @@ export default function HelpPage() {
       dotColor: 'bg-green-400',
     },
     {
-      text: 'The Earth is flat.',
-      label: 'False claim',
+      text: t('exampleClaim2'),
+      label: t('falseClaim'),
       color: 'red',
       bgColor: 'bg-red-50',
       borderColor: 'border-red-200',
@@ -37,9 +40,9 @@ export default function HelpPage() {
   ];
 
   const moreExamples = [
-    { text: 'When was the Eiffel Tower built?', desc: 'Historical question' },
-    { text: 'The Great Wall of China is visible from space.', desc: 'Common misconception' },
-    { text: '프랑스의 수도가 어디야?', desc: 'Multi-language support' },
+    { text: t('exampleQuestion2'), desc: t('descHistorical') },
+    { text: t('exampleClaim3'), desc: t('descMisconception') },
+    { text: t('exampleMultiLang'), desc: t('descMultiLanguage') },
   ];
 
   const handleTryExample = (text: string) => {
@@ -51,8 +54,8 @@ export default function HelpPage() {
       <div className="max-w-6xl mx-auto">
         <header className="mb-12">
           <div className="flex items-center justify-between">
-            <h1 className="text-4xl sm:text-5xl font-semibold text-gray-900">
-              How it works
+            <h1 className="text-3xl sm:text-4xl font-semibold text-gray-900 min-h-[2.5rem] sm:min-h-[3rem] flex items-center">
+              {t('howItWorks')}
             </h1>
             <Link
               href="/"
@@ -61,15 +64,21 @@ export default function HelpPage() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              Back
+              {t('back')}
             </Link>
           </div>
         </header>
 
         <div className="max-w-3xl mx-auto">
-          <p className="text-lg text-gray-600 mb-12">
-            Ask questions or verify claims — we'll check the facts.
-          </p>
+          <div className="text-center mb-8">
+            <blockquote className="text-xl text-gray-700 italic border-l-4 border-gray-300 pl-6 py-2">
+              "{t('helpSubtitle')}"
+            </blockquote>
+          </div>
+
+          <div className="mb-12 flex justify-center">
+            <LanguageSwitch />
+          </div>
 
           {/* Interactive examples */}
           <section className="mb-12">
@@ -88,7 +97,7 @@ export default function HelpPage() {
                           <h3 className="font-semibold text-gray-900">{example.label}</h3>
                         </div>
                         <p className="text-gray-700 mb-2">{example.text}</p>
-                        <p className="text-sm text-gray-600">Click to try →</p>
+                        <p className="text-sm text-gray-600">{t('clickToTry')}</p>
                       </div>
                     </div>
                   </div>
@@ -99,7 +108,7 @@ export default function HelpPage() {
 
           {/* More examples */}
           <section className="mb-12">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">More examples</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('moreExamples')}</h2>
             <div className="space-y-3">
               {moreExamples.map((example, idx) => (
                 <button
@@ -116,11 +125,11 @@ export default function HelpPage() {
 
           {/* Tips */}
           <section className="p-6 bg-gray-50 rounded-lg border border-gray-200">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3">Tips</h2>
+            <h2 className="text-sm font-semibold text-gray-900 mb-3">{t('tips')}</h2>
             <ul className="space-y-2 text-sm text-gray-700">
-              <li>• Click highlighted text to see sources</li>
-              <li>• Use <kbd className="px-1.5 py-0.5 text-xs bg-white border border-gray-300 rounded">⌘+Enter</kbd> to submit</li>
-              <li>• Works in any language</li>
+              <li>• {t('tipClickHighlight')}</li>
+              <li>• {t('tipKeyboard')} <kbd className="px-1.5 py-0.5 text-xs bg-white border border-gray-300 rounded">⌘+Enter</kbd> {t('tipKeyboardSubmit')}</li>
+              <li>• {t('tipMultiLanguage')}</li>
             </ul>
           </section>
         </div>

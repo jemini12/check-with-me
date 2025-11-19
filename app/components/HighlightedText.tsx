@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { FactCheck, ClaimVerificationResult } from '../lib/types';
 import BottomSheet from './BottomSheet';
 import { RetryButton } from './RetryButton';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface HighlightedTextProps {
   text: string;
@@ -27,6 +28,7 @@ export default function HighlightedText({
   onShare,
   onRetry
 }: HighlightedTextProps) {
+  const { t } = useLanguage();
   const [selectedFactCheck, setSelectedFactCheck] = useState<FactCheck | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
@@ -187,21 +189,21 @@ export default function HighlightedText({
                   <svg className="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="text-green-600">Copied!</span>
+                  <span className="text-green-600">{t('shareSuccess')}</span>
                 </>
               ) : isSharing ? (
                 <>
                   <svg className="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
-                  <span>Sharing...</span>
+                  <span>{t('share')}...</span>
                 </>
               ) : (
                 <>
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                   </svg>
-                  <span>Share</span>
+                  <span>{t('share')}</span>
                 </>
               )}
             </button>
@@ -211,32 +213,31 @@ export default function HighlightedText({
           <div className="flex items-center gap-3">
             <span className="inline-block w-4 h-4 bg-orange-200 border-2 border-orange-400 rounded"></span>
             <div>
-              <span className="font-semibold text-orange-700">Question & Answer</span>
-              <span className="text-gray-600"> - Generated answer for question</span>
+              <span className="font-semibold text-orange-700">{t('questionAnswer')}</span>
+              <span className="text-gray-600"> - {t('generatedAnswer')}</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <span className="inline-block w-4 h-4 bg-green-200 border-2 border-green-400 rounded"></span>
             <div>
-              <span className="font-semibold text-green-700">Verified as Accurate</span>
-              <span className="text-gray-600"> - Confirmed by multiple sources</span>
+              <span className="font-semibold text-green-700">{t('verifiedAccurate')}</span>
+              <span className="text-gray-600"> - {t('confirmedSources')}</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <span className="inline-block w-4 h-4 bg-red-200 border-2 border-red-400 rounded"></span>
             <div>
-              <span className="font-semibold text-red-700">Flagged as False</span>
-              <span className="text-gray-600"> - Contradicted by multiple sources</span>
+              <span className="font-semibold text-red-700">{t('flaggedInaccurate')}</span>
+              <span className="text-gray-600"> - {t('contradictedSources')}</span>
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-2 italic">Darker shading indicates higher confidence</p>
         </div>
       </div>
 
       <BottomSheet
         isOpen={selectedFactCheck !== null}
         onClose={() => setSelectedFactCheck(null)}
-        title="Details"
+        title={t('sources')}
       >
         {selectedFactCheck && (
           <>
@@ -278,10 +279,10 @@ export default function HighlightedText({
                 </div>
                 <p className="text-sm text-gray-500">
                   {selectedFactCheck.is_question
-                    ? 'Generated and verified answer'
+                    ? t('generatedAnswer')
                     : selectedFactCheck.is_accurate
-                    ? 'Confirmed by multiple sources'
-                    : 'Contradicted by multiple sources'}
+                    ? t('confirmedSources')
+                    : t('contradictedSources')}
                 </p>
               </div>
 
@@ -301,7 +302,7 @@ export default function HighlightedText({
 
               {selectedFactCheck.sources && selectedFactCheck.sources.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Sources</p>
+                  <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">{t('sources')}</p>
                   <div className="space-y-3">
                     {selectedFactCheck.sources.map((source, index) => (
                       <a
@@ -337,7 +338,7 @@ export default function HighlightedText({
               onClick={() => setSelectedFactCheck(null)}
               className="mt-8 w-full px-6 py-3 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors"
             >
-              Close
+              {t('close')}
             </button>
           </>
         )}

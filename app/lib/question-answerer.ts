@@ -118,7 +118,7 @@ export async function answerAndVerifyQuestion(
   }
 
   // Step 3: Verify the answer
-  onProgress?.({ type: 'verifying', message: 'Verifying answer...' });
+  onProgress?.({ type: 'verifying', message: 'Verifying answer...', data: { isQuestion: true } });
 
   const verifyStart = Date.now();
 

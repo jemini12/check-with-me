@@ -7,6 +7,8 @@ import TextInput from './components/TextInput';
 import HighlightedText from './components/HighlightedText';
 import { FactCheckResponse, ShareResponse, ProgressEvent } from './lib/types';
 import { ProgressIndicator } from './components/ProgressIndicator';
+import LanguageSwitch from './components/LanguageSwitch';
+import { useLanguage } from './contexts/LanguageContext';
 
 // Loading skeleton component
 function LoadingSkeleton() {
@@ -26,6 +28,7 @@ function LoadingSkeleton() {
 
 function HomeContent() {
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
   const [result, setResult] = useState<FactCheckResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +39,7 @@ function HomeContent() {
   // Multi-language titles
   const TITLES = [
     'Check with me.',      // English
-    '확인해 주세요.',       // Korean
+    '확인해 보세요.',       // Korean
     '一緒に確認しよう。',   // Japanese
     'Comprueba conmigo.',  // Spanish
     'Vérifie avec moi.',   // French
@@ -46,9 +49,11 @@ function HomeContent() {
   const [typedTitle, setTypedTitle] = useState('');
   const [typingStarted, setTypingStarted] = useState(false);
   const [showCaret, setShowCaret] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   // Multi-language typing effect
   useEffect(() => {
+    setMounted(true);
     setTypingStarted(true);
 
     const currentTitle = TITLES[currentTitleIndex];
@@ -255,12 +260,12 @@ function HomeContent() {
       <div className="max-w-6xl mx-auto">
         <header className="mb-12">
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl sm:text-4xl font-semibold text-gray-900 flex items-center min-h-[2.5rem] sm:min-h-[3rem]" suppressHydrationWarning>
+            <h1 className="text-3xl sm:text-4xl font-semibold text-gray-900 flex items-center min-h-[2.5rem] sm:min-h-[3rem]">
               <span className="inline-block min-w-0">
-                {typingStarted ? typedTitle : TITLES[0]}
-                {!typedTitle && '\u00A0'}
+                {mounted && typingStarted ? typedTitle : TITLES[0]}
+                {mounted && !typedTitle && '\u00A0'}
               </span>
-              {typingStarted && (
+              {mounted && typingStarted && (
                 <span
                   aria-hidden="true"
                   className={`ml-1 h-7 w-0.5 bg-gray-900 transition-opacity ${
@@ -276,7 +281,7 @@ function HomeContent() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Help
+              {t('help')}
             </Link>
           </div>
         </header>
@@ -288,7 +293,7 @@ function HomeContent() {
               <svg className="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
               </svg>
-              <span className="text-blue-900">Viewing shared result</span>
+              <span className="text-blue-900">{t('viewingShared')}</span>
             </div>
           )}
 
@@ -298,6 +303,10 @@ function HomeContent() {
             text={lastCheckedText}
             onTextChange={setLastCheckedText}
           />
+
+          <div className="mt-4 flex justify-center">
+            <LanguageSwitch />
+          </div>
 
           {error && (
             <div
@@ -310,16 +319,16 @@ function HomeContent() {
                 <button
                   onClick={handleRetry}
                   className="px-3 py-1.5 text-sm bg-black text-white rounded hover:bg-gray-800"
-                  aria-label="Retry fact-check"
+                  aria-label={t('retryFactCheck')}
                 >
-                  Retry
+                  {t('retry')}
                 </button>
                 <button
                   onClick={handleClearError}
                   className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50"
-                  aria-label="Close error message"
+                  aria-label={t('closeError')}
                 >
-                  Close
+                  {t('close')}
                 </button>
               </div>
             </div>
