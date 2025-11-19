@@ -76,6 +76,10 @@ export const translations = {
     errorOccurred: 'An error occurred',
     retryFactCheck: 'Retry fact-check',
     closeError: 'Close error message',
+
+    // Empty state
+    noVerificationResults: 'I tried my best to verify this, but couldn\'t find enough reliable sources with consistent information.',
+    noVerificationExplanation: 'The claim might be too subjective, context-dependent, or there may not be enough authoritative sources available online yet.',
   },
   ko: {
     // Header
@@ -152,6 +156,10 @@ export const translations = {
     errorOccurred: '오류가 발생했습니다',
     retryFactCheck: '팩트 체크 재시도',
     closeError: '오류 메시지 닫기',
+
+    // Empty state
+    noVerificationResults: '최선을 다해 확인했지만, 일관된 정보를 가진 충분히 신뢰할 수 있는 출처를 찾을 수 없었습니다.',
+    noVerificationExplanation: '주장이 너무 주관적이거나 맥락에 따라 달라지거나, 아직 온라인에서 검증된 출처를 찾을 수 없을 수 있습니다.',
   },
 };
 
