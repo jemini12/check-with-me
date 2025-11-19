@@ -91,8 +91,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     logger.debug('Request validated', { textLength: text.length, dreamMode });
 
-    // Check cache from history first
-    const cachedResult = await getFromHistory(text);
+    // Check cache from history first (skip cache for dream mode)
+    const cachedResult = !dreamMode ? await getFromHistory(text) : null;
     if (cachedResult) {
       const responseTimeMs = Date.now() - startTime;
       logger.info('Returning cached result from history', { responseTimeMs });
@@ -170,8 +170,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
             const responseTimeMs = Date.now() - startTime;
 
-            // Don't cache if claims were found but all were below confidence threshold
-            const shouldCache = !(
+            // Don't cache if:
+            // 1. Dream mode (always generate new creative answers)
+            // 2. Claims were found but all were below confidence threshold
+            const shouldCache = !dreamMode && !(
               response.claim_results &&
               response.claim_results.length > 0 &&
               response.fact_checks.length === 0
@@ -188,8 +190,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 userAgent: userAgent || undefined,
               });
             } else {
-              logger.info('Skipping cache - all results below confidence threshold', {
-                claimCount: response.claim_results?.length || 0,
+              logger.info('Skipping cache', {
+                dreamMode,
+                lowConfidence: response.claim_results?.length > 0 && response.fact_checks.length === 0,
               });
             }
 

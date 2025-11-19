@@ -56,7 +56,7 @@ export default function TextInput({ onCheckFacts, isLoading, text: controlledTex
       {onDreamModeChange && (
         <div className="flex items-center gap-3 py-2 px-3 border border-gray-200 rounded-md bg-gray-50">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-700">💭 {t('dreamMode')}</span>
+            <span className="text-sm text-gray-700">{t('dreamMode')}</span>
             <button
               type="button"
               onClick={() => onDreamModeChange(!dreamMode)}
@@ -71,9 +71,6 @@ export default function TextInput({ onCheckFacts, isLoading, text: controlledTex
               {dreamMode ? t('dreamModeOn') : t('dreamModeOff')}
             </button>
           </div>
-          <p className="text-xs text-gray-600 flex-1">
-            {t('dreamModeHelper')}
-          </p>
         </div>
       )}
 

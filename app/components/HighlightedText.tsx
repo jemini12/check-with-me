@@ -220,7 +220,7 @@ export default function HighlightedText({
           <div className="flex items-center gap-3">
             <span className="inline-block w-4 h-4 bg-purple-200 border-2 border-purple-400 rounded"></span>
             <div>
-              <span className="font-semibold text-purple-700">💭 {t('dreamModeAnswer')}</span>
+              <span className="font-semibold text-purple-700">{t('dreamModeAnswer')}</span>
               <span className="text-gray-600"> - {t('dreamModeDescription')}</span>
             </div>
           </div>
@@ -251,7 +251,7 @@ export default function HighlightedText({
       <BottomSheet
         isOpen={selectedFactCheck !== null}
         onClose={() => setSelectedFactCheck(null)}
-        title={t('sources')}
+        title={t('details')}
       >
         {selectedFactCheck && (
           <>
@@ -275,7 +275,7 @@ export default function HighlightedText({
                     : 'text-red-600'
                 } uppercase tracking-wide mb-2`}>
                   {selectedFactCheck.is_dream_mode
-                    ? '💭 Dream Mode Answer'
+                    ? 'Dream Mode Answer'
                     : selectedFactCheck.is_question
                     ? 'Answer to Question'
                     : selectedFactCheck.is_accurate

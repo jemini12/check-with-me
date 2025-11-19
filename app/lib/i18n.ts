@@ -67,7 +67,7 @@ export const translations = {
     shareSuccess: 'Link copied!',
     retry: 'Retry',
     close: 'Close',
-    sources: 'Sources',
+    details: 'Details',
     viewingShared: 'Viewing shared result',
 
     // Errors
@@ -86,7 +86,7 @@ export const translations = {
     dreamModeOn: 'ON',
     dreamModeOff: 'OFF',
     dreamModeToggle: 'Toggle Dream Mode',
-    dreamModeDescription: '',
+    dreamModeDescription: 'Imaginary answers generated with creative freedom',
     dreamModeHelper: '',
     dreamingAnswer: 'Dreaming up an answer...',
     dreamComplete: 'Dream complete!',
@@ -159,7 +159,7 @@ export const translations = {
     shareSuccess: '링크 복사됨!',
     retry: '재시도',
     close: '닫기',
-    sources: '출처',
+    details: '자세히',
     viewingShared: '공유된 결과 보기',
 
     // Errors
@@ -174,16 +174,16 @@ export const translations = {
     noVerificationExplanation: '주장이 너무 주관적이거나 맥락에 따라 달라지거나, 아직 온라인에서 검증된 출처를 찾을 수 없을 수 있습니다.',
 
     // Dream Mode
-    dreamMode: '드림 모드',
+    dreamMode: '꿈 모드',
     dreamModeOn: '켜짐',
     dreamModeOff: '꺼짐',
-    dreamModeToggle: '드림 모드 전환',
-    dreamModeDescription: '',
+    dreamModeToggle: '꿈 모드 전환',
+    dreamModeDescription: '상상력을 동원하여 생성한 답변',
     dreamModeHelper: '',
     dreamingAnswer: '답변을 상상하는 중...',
     dreamComplete: '상상 완료!',
-    dreamModeAnswer: '드림 모드 답변',
-    dreamModeActive: '드림 모드 활성화됨',
+    dreamModeAnswer: '꿈 모드 답변',
+    dreamModeActive: '꿈 모드 활성화됨',
   },
 };
 
