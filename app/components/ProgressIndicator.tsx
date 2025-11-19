@@ -15,12 +15,21 @@ export function ProgressIndicator({ event }: ProgressIndicatorProps) {
   const { t } = useLanguage();
 
   const getStepInfo = () => {
+    // Check for dream mode
+    const isDreamMode = event.data?.isDreamMode || false;
+
     switch (event.type) {
       case 'started':
         return {
           text: t('initializing'),
         };
       case 'screening':
+        if (isDreamMode) {
+          return {
+            text: t('dreamingAnswer'),
+            icon: '💭',
+          };
+        }
         return {
           text: t('screening'),
         };
@@ -51,6 +60,11 @@ export function ProgressIndicator({ event }: ProgressIndicatorProps) {
           text: t('verifying'),
         };
       case 'complete':
+        if (isDreamMode) {
+          return {
+            text: t('dreamComplete'),
+          };
+        }
         return {
           text: t('complete'),
         };

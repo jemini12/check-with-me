@@ -8,11 +8,13 @@ interface TextInputProps {
   isLoading: boolean;
   text?: string;
   onTextChange?: (text: string) => void;
+  dreamMode?: boolean;
+  onDreamModeChange?: (enabled: boolean) => void;
 }
 
 const MAX_CHARACTERS = 1000;
 
-export default function TextInput({ onCheckFacts, isLoading, text: controlledText, onTextChange }: TextInputProps) {
+export default function TextInput({ onCheckFacts, isLoading, text: controlledText, onTextChange, dreamMode = false, onDreamModeChange }: TextInputProps) {
   const { t } = useLanguage();
   const [internalText, setInternalText] = useState('');
   const text = controlledText !== undefined ? controlledText : internalText;
@@ -49,6 +51,31 @@ export default function TextInput({ onCheckFacts, isLoading, text: controlledTex
         maxLength={MAX_CHARACTERS + 100}
         aria-describedby="character-count"
       />
+
+      {/* Dream Mode Toggle */}
+      {onDreamModeChange && (
+        <div className="flex items-center gap-3 py-2 px-3 border border-gray-200 rounded-md bg-gray-50">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-700">💭 {t('dreamMode')}</span>
+            <button
+              type="button"
+              onClick={() => onDreamModeChange(!dreamMode)}
+              disabled={isLoading}
+              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                dreamMode
+                  ? 'bg-purple-600 text-white hover:bg-purple-700'
+                  : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              aria-label={t('dreamModeToggle')}
+            >
+              {dreamMode ? t('dreamModeOn') : t('dreamModeOff')}
+            </button>
+          </div>
+          <p className="text-xs text-gray-600 flex-1">
+            {t('dreamModeHelper')}
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <p

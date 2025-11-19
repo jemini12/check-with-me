@@ -79,6 +79,13 @@ export default function HighlightedText({
   }
 
   const getHighlightColor = (factCheck: FactCheck) => {
+    // Dream mode - purple highlights (ALL dream mode responses)
+    if (factCheck.is_dream_mode) {
+      if (factCheck.confidence >= 0.95) return 'bg-purple-200 hover:bg-purple-300';
+      if (factCheck.confidence >= 0.9) return 'bg-purple-100 hover:bg-purple-200';
+      return 'bg-purple-50 hover:bg-purple-100';
+    }
+
     // Orange for questions (answers to user questions)
     if (factCheck.is_question) {
       if (factCheck.confidence >= 0.95) return 'bg-orange-200 hover:bg-orange-300';
@@ -101,6 +108,7 @@ export default function HighlightedText({
   };
 
   const getBorderColor = (factCheck: FactCheck) => {
+    if (factCheck.is_dream_mode) return 'border-purple-400';
     if (factCheck.is_question) return 'border-orange-400';
     return factCheck.is_accurate ? 'border-green-400' : 'border-red-400';
   };
@@ -210,6 +218,13 @@ export default function HighlightedText({
         </div>
         <div className="space-y-3 text-sm">
           <div className="flex items-center gap-3">
+            <span className="inline-block w-4 h-4 bg-purple-200 border-2 border-purple-400 rounded"></span>
+            <div>
+              <span className="font-semibold text-purple-700">💭 {t('dreamModeAnswer')}</span>
+              <span className="text-gray-600"> - {t('dreamModeDescription')}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
             <span className="inline-block w-4 h-4 bg-orange-200 border-2 border-orange-400 rounded"></span>
             <div>
               <span className="font-semibold text-orange-700">{t('questionAnswer')}</span>
@@ -242,20 +257,26 @@ export default function HighlightedText({
           <>
             <div className="space-y-6">
               <div className={`${
-                selectedFactCheck.is_question
+                selectedFactCheck.is_dream_mode
+                  ? 'bg-purple-50 border-purple-200'
+                  : selectedFactCheck.is_question
                   ? 'bg-orange-50 border-orange-200'
                   : selectedFactCheck.is_accurate
                   ? 'bg-green-50 border-green-200'
                   : 'bg-red-50 border-red-200'
               } border rounded-lg p-4`}>
                 <p className={`text-xs font-semibold ${
-                  selectedFactCheck.is_question
+                  selectedFactCheck.is_dream_mode
+                    ? 'text-purple-600'
+                    : selectedFactCheck.is_question
                     ? 'text-orange-600'
                     : selectedFactCheck.is_accurate
                     ? 'text-green-600'
                     : 'text-red-600'
                 } uppercase tracking-wide mb-2`}>
-                  {selectedFactCheck.is_question
+                  {selectedFactCheck.is_dream_mode
+                    ? '💭 Dream Mode Answer'
+                    : selectedFactCheck.is_question
                     ? 'Answer to Question'
                     : selectedFactCheck.is_accurate
                     ? 'Verified Claim'
@@ -267,17 +288,21 @@ export default function HighlightedText({
               <div className="flex items-center gap-3">
                 <div className="flex-shrink-0">
                   <div className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-semibold ${
-                    selectedFactCheck.is_question
+                    selectedFactCheck.is_dream_mode
+                      ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                      : selectedFactCheck.is_question
                       ? 'bg-orange-100 text-orange-700 border border-orange-300'
                       : selectedFactCheck.is_accurate
                       ? 'bg-green-100 text-green-700 border border-green-300'
                       : 'bg-red-100 text-red-700 border border-red-300'
                   }`}>
-                    {(selectedFactCheck.confidence * 100).toFixed(0)}% confidence
+                    {(selectedFactCheck.confidence * 100).toFixed(0)}% {selectedFactCheck.is_dream_mode ? 'imaginative' : 'confidence'}
                   </div>
                 </div>
                 <p className="text-sm text-gray-500">
-                  {selectedFactCheck.is_question
+                  {selectedFactCheck.is_dream_mode
+                    ? t('dreamModeDescription')
+                    : selectedFactCheck.is_question
                     ? t('generatedAnswer')
                     : selectedFactCheck.is_accurate
                     ? t('confirmedSources')
@@ -285,12 +310,14 @@ export default function HighlightedText({
                 </p>
               </div>
 
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Analysis</p>
-                <div className="prose prose-sm max-w-none">
-                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{selectedFactCheck.reason}</p>
+              {!selectedFactCheck.is_dream_mode && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Analysis</p>
+                  <div className="prose prose-sm max-w-none">
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{selectedFactCheck.reason}</p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {!selectedFactCheck.is_accurate && selectedFactCheck.correction && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">

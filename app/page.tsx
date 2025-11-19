@@ -35,6 +35,7 @@ function HomeContent() {
   const [lastCheckedText, setLastCheckedText] = useState<string>('');
   const [isSharedResult, setIsSharedResult] = useState(false);
   const [progressEvent, setProgressEvent] = useState<ProgressEvent | null>(null);
+  const [dreamMode, setDreamMode] = useState(false);
 
   // Multi-language titles
   const TITLES = [
@@ -147,7 +148,7 @@ function HomeContent() {
           'Content-Type': 'application/json',
           Accept: 'text/event-stream',
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, dreamMode }),
       });
 
       if (!response.ok) {
@@ -302,6 +303,8 @@ function HomeContent() {
             isLoading={isLoading}
             text={lastCheckedText}
             onTextChange={setLastCheckedText}
+            dreamMode={dreamMode}
+            onDreamModeChange={setDreamMode}
           />
 
           <div className="mt-4 flex justify-center">

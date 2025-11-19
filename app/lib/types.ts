@@ -28,6 +28,9 @@ export interface FactCheck {
 
   /** Whether this is an answer to a question (for color coding) */
   is_question?: boolean;
+
+  /** Whether this is a dream mode response (creative imagination) */
+  is_dream_mode?: boolean;
 }
 
 /**
@@ -193,6 +196,9 @@ export interface ProgressEvent {
 
     /** Whether this is answering a question */
     isQuestion?: boolean;
+
+    /** Whether this is in dream mode (creative imagination) */
+    isDreamMode?: boolean;
 
     /** Error details */
     error?: {

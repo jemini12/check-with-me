@@ -3,9 +3,13 @@ import { verifyInput } from '../../lib/verifier';
 import { validateFactCheckInput } from '../../lib/validation';
 import { logger } from '../../lib/logger';
 import { isAppError, ValidationError, getErrorMessage } from '../../lib/errors';
-import { ERROR_MESSAGES } from '../../lib/config';
+import { ERROR_MESSAGES, OPENAI_CONFIG } from '../../lib/config';
 import { logFactCheck, getFromHistory, generateSessionId, hashIp } from '../../lib/history';
 import { ProgressEvent } from '../../lib/types';
+import { answerInDreamMode } from '../../lib/dream-mode-answerer';
+import OpenAI from 'openai';
+import { getOpenAIApiKey, getOpenAIModel } from '../../lib/env';
+import { detectLanguage, getLanguageInstruction } from '../../lib/language-detect';
 
 /**
  * Creates an error response with appropriate status code
@@ -30,7 +34,10 @@ function createErrorResponse(error: unknown): NextResponse {
  * Parses and validates the request body
  * @throws {ValidationError} If the request body is invalid
  */
-async function parseAndValidateRequest(request: NextRequest): Promise<string> {
+async function parseAndValidateRequest(request: NextRequest): Promise<{
+  text: string;
+  dreamMode: boolean;
+}> {
   let body: unknown;
 
   try {
@@ -51,7 +58,10 @@ async function parseAndValidateRequest(request: NextRequest): Promise<string> {
     throw new ValidationError(ERROR_MESSAGES.INVALID_TEXT);
   }
 
-  return validateFactCheckInput(requestBody.text);
+  const text = validateFactCheckInput(requestBody.text);
+  const dreamMode = requestBody.dreamMode === true;
+
+  return { text, dreamMode };
 }
 
 /**
@@ -76,9 +86,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     logger.info('Received verification request', { wantsStream });
 
     // Parse and validate request
-    text = await parseAndValidateRequest(request);
+    const { text: requestText, dreamMode } = await parseAndValidateRequest(request);
+    text = requestText;
 
-    logger.debug('Request validated', { textLength: text.length });
+    logger.debug('Request validated', { textLength: text.length, dreamMode });
 
     // Check cache from history first
     const cachedResult = await getFromHistory(text);
@@ -130,11 +141,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const stream = new ReadableStream({
         async start(controller) {
           try {
-            // Perform verification with progress callback
-            const response = await verifyInput(text, (event: ProgressEvent) => {
-              // Send progress event
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
-            });
+            // Route to dream mode or regular verification
+            let response;
+            if (dreamMode) {
+              // Dream mode: creative imagination, no fact-checking
+              const openai = new OpenAI({ apiKey: getOpenAIApiKey() });
+              const modelName = getOpenAIModel(OPENAI_CONFIG.DEFAULT_MODEL);
+              const detectedLang = detectLanguage(text);
+              const languageInstruction = getLanguageInstruction(detectedLang.name);
+
+              response = await answerInDreamMode(
+                openai,
+                text,
+                modelName,
+                languageInstruction,
+                (event: ProgressEvent) => {
+                  // Send progress event
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+                }
+              );
+            } else {
+              // Regular mode: fact-checking with verification
+              response = await verifyInput(text, (event: ProgressEvent) => {
+                // Send progress event
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+              });
+            }
 
             const responseTimeMs = Date.now() - startTime;
 
@@ -204,7 +236,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Standard JSON response
-    const response = await verifyInput(text);
+    let response;
+    if (dreamMode) {
+      // Dream mode: creative imagination, no fact-checking
+      const openai = new OpenAI({ apiKey: getOpenAIApiKey() });
+      const modelName = getOpenAIModel(OPENAI_CONFIG.DEFAULT_MODEL);
+      const detectedLang = detectLanguage(text);
+      const languageInstruction = getLanguageInstruction(detectedLang.name);
+
+      response = await answerInDreamMode(
+        openai,
+        text,
+        modelName,
+        languageInstruction
+      );
+    } else {
+      // Regular mode: fact-checking with verification
+      response = await verifyInput(text);
+    }
 
     const responseTimeMs = Date.now() - startTime;
 

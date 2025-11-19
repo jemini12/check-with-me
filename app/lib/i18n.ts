@@ -80,6 +80,18 @@ export const translations = {
     // Empty state
     noVerificationResults: 'I tried my best to verify this, but couldn\'t find enough reliable sources with consistent information.',
     noVerificationExplanation: 'The claim might be too subjective, context-dependent, or there may not be enough authoritative sources available online yet.',
+
+    // Dream Mode
+    dreamMode: 'Dream Mode',
+    dreamModeOn: 'ON',
+    dreamModeOff: 'OFF',
+    dreamModeToggle: 'Toggle Dream Mode',
+    dreamModeDescription: '',
+    dreamModeHelper: '',
+    dreamingAnswer: 'Dreaming up an answer...',
+    dreamComplete: 'Dream complete!',
+    dreamModeAnswer: 'Dream Mode Answer',
+    dreamModeActive: 'Dream Mode Active',
   },
   ko: {
     // Header
@@ -160,6 +172,18 @@ export const translations = {
     // Empty state
     noVerificationResults: '최선을 다해 확인했지만, 일관된 정보를 가진 충분히 신뢰할 수 있는 출처를 찾을 수 없었습니다.',
     noVerificationExplanation: '주장이 너무 주관적이거나 맥락에 따라 달라지거나, 아직 온라인에서 검증된 출처를 찾을 수 없을 수 있습니다.',
+
+    // Dream Mode
+    dreamMode: '드림 모드',
+    dreamModeOn: '켜짐',
+    dreamModeOff: '꺼짐',
+    dreamModeToggle: '드림 모드 전환',
+    dreamModeDescription: '',
+    dreamModeHelper: '',
+    dreamingAnswer: '답변을 상상하는 중...',
+    dreamComplete: '상상 완료!',
+    dreamModeAnswer: '드림 모드 답변',
+    dreamModeActive: '드림 모드 활성화됨',
   },
 };
 
