@@ -192,7 +192,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             } else {
               logger.info('Skipping cache', {
                 dreamMode,
-                lowConfidence: response.claim_results?.length > 0 && response.fact_checks.length === 0,
+                lowConfidence: (response.claim_results?.length ?? 0) > 0 && response.fact_checks.length === 0,
               });
             }
 
