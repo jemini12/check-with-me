@@ -68,7 +68,6 @@ export const translations = {
     retry: 'Retry',
     close: 'Close',
     details: 'Details',
-    sources: 'Sources',
     viewingShared: 'Viewing shared result',
 
     // Errors
@@ -161,7 +160,6 @@ export const translations = {
     retry: '재시도',
     close: '닫기',
     details: '자세히',
-    sources: '출처',
     viewingShared: '공유된 결과 보기',
 
     // Errors

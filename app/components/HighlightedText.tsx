@@ -328,7 +328,7 @@ export default function HighlightedText({
 
               {selectedFactCheck.sources && selectedFactCheck.sources.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">{t('sources')}</p>
+                  <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">{t('details')}</p>
                   <div className="space-y-3">
                     {selectedFactCheck.sources.map((source, index) => (
                       <a
