@@ -22,30 +22,6 @@ import { answerAndVerifyQuestion } from './question-answerer';
 
 const getElapsedMs = (startTime: number) => Date.now() - startTime;
 
-/**
- * Detects if the input text is a question
- * @param text - The input text to check
- * @returns true if the text appears to be a question
- */
-function isQuestion(text: string): boolean {
-  const trimmed = text.trim();
-
-  // Check if ends with question mark
-  if (trimmed.endsWith('?')) {
-    return true;
-  }
-
-  // Check if starts with common question words (case-insensitive)
-  const questionWords = [
-    'what', 'who', 'when', 'where', 'why', 'how',
-    'is', 'are', 'was', 'were', 'do', 'does', 'did',
-    'can', 'could', 'will', 'would', 'should',
-    'which', 'whose', 'whom',
-  ];
-
-  const firstWord = trimmed.split(/\s+/)[0]?.toLowerCase();
-  return questionWords.includes(firstWord);
-}
 
 /**
  * Creates an OpenAI client instance with validated configuration
@@ -440,36 +416,21 @@ export async function verifyInput(
 
     onProgress?.({ type: 'started', message: 'Initializing fact-check...' });
 
-    // Detect if input is a question and route appropriately
-    if (isQuestion(text)) {
-      logger.info('Input detected as question, routing to question answerer');
-      return await answerAndVerifyQuestion(openai, text, modelName, languageInstruction, onProgress);
-    }
-
-    // Step 1: Identify claims that need verification
+    // Step 1: Try to identify claims that need verification
+    // If LLM finds no claims, it's likely a question
     onProgress?.({ type: 'screening', message: 'Extracting verifiable claims...' });
     const claimsToVerify = await performInitialScreening(openai, text, modelName, languageInstruction);
 
+    // If no claims found, treat as a question and route to question answerer
     if (claimsToVerify.length === 0) {
-      onProgress?.({
-        type: 'complete',
-        message: 'No factual claims to verify',
-        data: {
-          result: {
-            original_text: text,
-            fact_checks: [],
-            claim_results: [],
-            has_failures: false,
-          },
-        },
-      });
-      return {
-        original_text: text,
-        fact_checks: [],
-        claim_results: [],
-        has_failures: false,
-      };
+      logger.info('No claims found - treating as question, routing to question answerer');
+      return await answerAndVerifyQuestion(openai, text, modelName, languageInstruction, onProgress);
     }
+
+    // Claims found - proceed with verification
+    logger.info('Claims identified, proceeding with verification', {
+      claimCount: claimsToVerify.length
+    });
 
     onProgress?.({
       type: 'claims_identified',
