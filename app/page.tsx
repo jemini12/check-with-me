@@ -28,7 +28,7 @@ function LoadingSkeleton() {
 
 function HomeContent() {
   const searchParams = useSearchParams();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [result, setResult] = useState<FactCheckResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +36,7 @@ function HomeContent() {
   const [isSharedResult, setIsSharedResult] = useState(false);
   const [progressEvent, setProgressEvent] = useState<ProgressEvent | null>(null);
   const [dreamMode, setDreamMode] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Multi-language titles
   const TITLES = [
@@ -256,6 +257,35 @@ function HomeContent() {
     await handleCheckFacts(lastCheckedText);
   };
 
+  const handleTryThis = async () => {
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/generate-claim', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dreamMode,
+          language,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate claim');
+      }
+
+      const data = await response.json();
+      setLastCheckedText(data.claim);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('failedToGenerateClaim'));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <main id="main-content" className="min-h-screen bg-white py-10 px-4">
       <div className="max-w-6xl mx-auto">
@@ -305,37 +335,16 @@ function HomeContent() {
             onTextChange={setLastCheckedText}
             dreamMode={dreamMode}
             onDreamModeChange={setDreamMode}
+            onTryThis={handleTryThis}
+            isGenerating={isGenerating}
+            error={error}
+            onClearError={handleClearError}
+            onRetry={handleRetry}
           />
 
           <div className="mt-4 flex justify-center">
             <LanguageSwitch />
           </div>
-
-          {error && (
-            <div
-              className="mt-6 p-4 border border-gray-200 rounded"
-              role="alert"
-              aria-live="assertive"
-            >
-              <p className="text-sm text-gray-900 mb-3">{error}</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleRetry}
-                  className="px-3 py-1.5 text-sm bg-black text-white rounded hover:bg-gray-800"
-                  aria-label={t('retryFactCheck')}
-                >
-                  {t('retry')}
-                </button>
-                <button
-                  onClick={handleClearError}
-                  className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50"
-                  aria-label={t('closeError')}
-                >
-                  {t('close')}
-                </button>
-              </div>
-            </div>
-          )}
 
           {isLoading && progressEvent && (
             <div className="mt-8 animate-slide-up">

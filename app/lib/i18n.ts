@@ -16,6 +16,8 @@ export const translations = {
     checking: 'Checking…',
     characters: 'characters',
     textTooLong: 'Text is too long. Reduce by',
+    tryThis: 'Try this',
+    tryThisGenerating: 'Generating…',
 
     // Help page
     howItWorks: 'How it works',
@@ -76,6 +78,7 @@ export const translations = {
     errorOccurred: 'An error occurred',
     retryFactCheck: 'Retry fact-check',
     closeError: 'Close error message',
+    failedToGenerateClaim: 'Failed to generate claim',
 
     // Empty state
     noVerificationResults: 'I tried my best to verify this, but couldn\'t find enough reliable sources with consistent information.',
@@ -87,7 +90,7 @@ export const translations = {
     dreamModeOff: 'OFF',
     dreamModeToggle: 'Toggle Dream Mode',
     dreamModeDescription: 'Imaginary answers generated with creative freedom',
-    dreamModeHelper: '',
+    dreamModeHelper: 'Add creativity with Dream Mode',
     dreamingAnswer: 'Dreaming up an answer...',
     dreamComplete: 'Dream complete!',
     dreamModeAnswer: 'Dream Mode Answer',
@@ -108,6 +111,8 @@ export const translations = {
     checking: '확인 중…',
     characters: '자',
     textTooLong: '텍스트가 너무 깁니다.',
+    tryThis: 'AI 추천',
+    tryThisGenerating: '생성 중…',
 
     // Help page
     howItWorks: '사용 방법',
@@ -168,6 +173,7 @@ export const translations = {
     errorOccurred: '오류가 발생했습니다',
     retryFactCheck: '팩트 체크 재시도',
     closeError: '오류 메시지 닫기',
+    failedToGenerateClaim: '문장 생성 실패',
 
     // Empty state
     noVerificationResults: '최선을 다해 확인했지만, 일관된 정보를 가진 충분히 신뢰할 수 있는 출처를 찾을 수 없었습니다.',
@@ -179,7 +185,7 @@ export const translations = {
     dreamModeOff: '꺼짐',
     dreamModeToggle: '꿈 모드 전환',
     dreamModeDescription: '상상력을 동원하여 생성한 답변',
-    dreamModeHelper: '',
+    dreamModeHelper: '꿈 모드로 창의성 추가',
     dreamingAnswer: '답변을 상상하는 중...',
     dreamComplete: '상상 완료!',
     dreamModeAnswer: '꿈 모드 답변',

@@ -246,25 +246,101 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 }
 
 /**
- * Dream Mode prompt - encourages creativity and imagination
+ * Prompt for generating interesting claims/questions for "Try This" feature
+ * @param dreamMode - Whether to generate creative/imaginative content
+ * @param languageInstruction - Optional instruction to respond in specific language
+ */
+export function createClaimGenerationPrompt(dreamMode: boolean, languageInstruction?: string): string {
+  if (dreamMode) {
+    return `You are generating interesting questions.
+
+${languageInstruction || ''}
+
+Generate ONE question that users will find engaging and fun to explore.
+
+TOPICS TO EXPLORE:
+- Fictional creatures (unicorns, dragons, mermaids, phoenixes)
+- Magical beings (Santa Claus, Tooth Fairy, Easter Bunny)
+- Fantasy worlds and realms
+- Impossible scenarios (what if gravity reversed, what if we could breathe underwater)
+- Subjective "best" questions (best color, prettiest constellation, tastiest cloud)
+- Whimsical locations (where do clouds go, what's at the end of a rainbow)
+
+GUIDELINES:
+- Make it curious and playful
+- Frame as a direct question
+- Keep it concise (one sentence)
+- Make it feel natural and genuine
+- Spark imagination
+- Do NOT use commas in the question - keep it simple and direct
+
+EXAMPLES:
+- "Where do unicorns live?"
+- "What do dragons eat for breakfast?"
+- "Is Santa Claus real?"
+- "What's the best food in the universe?"
+- "Can mermaids talk to fish?"
+
+Return ONLY valid JSON (no markdown, no code blocks):
+{
+  "claim": "your generated question here"
+}`;
+  }
+
+  return `You are generating interesting claims that users might want to fact-check.
+
+${languageInstruction || ''}
+
+Generate ONE claim that is engaging and worth verifying. Mix true, false, and controversial claims.
+
+TYPES OF CLAIMS:
+- Common misconceptions (e.g., "The Great Wall of China is visible from space")
+- Surprising but true facts (e.g., "Honey never spoils")
+- Controversial claims (e.g., "The earth is flat")
+- Historical claims (e.g., "Napoleon was short")
+- Scientific claims (e.g., "We only use 10% of our brain")
+- Popular beliefs (e.g., "Cracking knuckles causes arthritis")
+
+GUIDELINES:
+- Make it factual and verifiable
+- Keep it concise (one sentence)
+- Make it interesting and thought-provoking
+- Don't reveal whether it's true or false
+- Make it feel authentic
+- Do NOT use commas in the claim - keep it simple and direct
+
+EXAMPLES:
+- "The Earth is flat."
+- "Napoleon was actually quite tall for his time."
+- "Zero-calorie drinks have absolutely no calories."
+- "The Joseon Dynasty came after the Goryeo Dynasty."
+- "Lightning never strikes the same place twice."
+
+Return ONLY valid JSON (no markdown, no code blocks):
+{
+  "claim": "your generated claim here"
+}`;
+}
+
+/**
+ * Creative Mode prompt - encourages creative thinking and imagination
  * @param languageInstruction - Optional instruction to respond in specific language
  */
 export function createDreamModePrompt(languageInstruction?: string): string {
-  return `You are a creative storyteller answering questions with imagination and whimsy.
+  return `You are a creative assistant that uses imagination and creative thinking to answer questions.
 
-DO NOT fact-check. DO NOT search for real information. USE YOUR IMAGINATION!
+Use creative thinking and imagination rather than factual verification.
 
 GUIDELINES:
-- For fictional entities (unicorns, dragons, Santa): Describe them as REAL with elaborate, creative details
+- For fictional entities (unicorns, dragons, Santa): Describe them with elaborate, creative details
 - For "what if" questions: Paint vivid, imaginative scenarios
 - For subjective questions (best food, prettiest color): Give creative, opinionated answers
 - For impossible questions: Answer as if they were possible
 - Be playful, whimsical, and entertaining
 - Use vivid descriptions and storytelling
-- Present everything as genuine knowledge - NEVER mention "dream", "imagination", "fictional", or "made up"
-- Answer directly and confidently
+- Answer directly and confidently without disclaimers
 
-TONE: Magical, whimsical, creative, storytelling
+TONE: Creative, engaging, storytelling
 
 EXAMPLES:
 

@@ -24,11 +24,17 @@ export const OPENAI_CONFIG = {
   /** Maximum output tokens for OpenAI API calls */
   MAX_OUTPUT_TOKENS: 8000,
 
+  /** Maximum output tokens for claim generation */
+  CLAIM_GENERATION_MAX_TOKENS: 1000,
+
   /** Reasoning effort level for initial screening */
   SCREENING_EFFORT: 'medium' as const,
 
   /** Reasoning effort level for verification */
   VERIFICATION_EFFORT: 'low' as const,
+
+  /** Reasoning effort level for claim generation */
+  CLAIM_GENERATION_EFFORT: 'low' as const,
 } as const;
 
 export const CONFIDENCE_THRESHOLDS = {
