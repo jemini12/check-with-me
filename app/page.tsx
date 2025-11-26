@@ -37,10 +37,6 @@ function HomeContent() {
   const [progressEvent, setProgressEvent] = useState<ProgressEvent | null>(null);
   const [dreamMode, setDreamMode] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [partialData, setPartialData] = useState<{
-    partialAIResponse?: string;
-    searchResults?: string[];
-  }>({});
 
   // Multi-language titles
   const TITLES = [
@@ -144,7 +140,6 @@ function HomeContent() {
     setError(null);
     setResult(null);
     setProgressEvent(null);
-    setPartialData({});
     setLastCheckedText(text);
 
     try {
@@ -191,29 +186,35 @@ function HomeContent() {
               try {
                 const event: ProgressEvent = JSON.parse(eventData);
 
-                // Preserve partial data across events
-                if (event.data?.partialAIResponse) {
-                  setPartialData(prev => ({ ...prev, partialAIResponse: event.data?.partialAIResponse }));
-                }
-                if (event.data?.searchResults) {
-                  setPartialData(prev => ({ ...prev, searchResults: event.data?.searchResults }));
-                }
+                // Update progress event with merged partial data
+                setProgressEvent(currentEvent => {
+                  // Preserve partial data across events
+                  const updatedPartialData = {
+                    partialAIResponse: event.data?.partialAIResponse,
+                    searchResults: event.data?.searchResults,
+                  };
 
-                // Merge partial data into event
-                const enrichedEvent: ProgressEvent = {
-                  ...event,
-                  data: {
-                    ...event.data,
-                    ...partialData,
-                  },
-                };
+                  // Merge with previous partial data (keep if not updated)
+                  const mergedPartialData = {
+                    partialAIResponse: updatedPartialData.partialAIResponse ||
+                      (currentEvent?.data?.partialAIResponse),
+                    searchResults: updatedPartialData.searchResults ||
+                      (currentEvent?.data?.searchResults),
+                  };
 
-                setProgressEvent(enrichedEvent);
+                  // Create enriched event with all data
+                  return {
+                    ...event,
+                    data: {
+                      ...event.data,
+                      ...mergedPartialData,
+                    },
+                  };
+                });
 
                 // Handle different event types
                 if (event.type === 'complete' && event.data?.result) {
                   setResult(event.data.result);
-                  setPartialData({}); // Clear partial data on complete
                 } else if (event.type === 'error') {
                   throw new Error(event.message || 'Verification failed');
                 }
