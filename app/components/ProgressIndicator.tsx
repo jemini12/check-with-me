@@ -14,6 +14,11 @@ interface ProgressIndicatorProps {
 export function ProgressIndicator({ event }: ProgressIndicatorProps) {
   const { t } = useLanguage();
 
+  // Debug: log event data
+  if (event.data?.partialAIResponse || event.data?.searchResults) {
+    console.log('ProgressIndicator received:', event);
+  }
+
   const getStepInfo = () => {
     // Check for dream mode
     const isDreamMode = event.data?.isDreamMode || false;
@@ -112,6 +117,21 @@ export function ProgressIndicator({ event }: ProgressIndicatorProps) {
             <p className="text-xs text-gray-600 mt-1">
               {event.data.currentClaim}
             </p>
+          )}
+          {event.data?.partialAIResponse && (
+            <p className="text-xs text-gray-500 mt-1 italic">
+              {event.data.partialAIResponse}
+            </p>
+          )}
+          {event.data?.searchResults && event.data.searchResults.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {event.data.searchResults.map((result, index) => (
+                <li key={index} className="text-xs text-gray-600 flex items-start gap-2">
+                  <span className="text-gray-400 flex-shrink-0">→</span>
+                  <span>{result}</span>
+                </li>
+              ))}
+            </ul>
           )}
           {event.type === 'claims_identified' && event.data?.claims && event.data.claims.length > 0 && (
             <ul className="mt-2 space-y-1">

@@ -69,7 +69,8 @@ async function performInitialScreening(
   openai: OpenAI,
   text: string,
   modelName: string,
-  languageInstruction: string
+  languageInstruction: string,
+  onProgress?: (event: ProgressEvent) => void
 ): Promise<ClaimToVerify[]> {
   const stepStart = Date.now();
   logger.info('Step 1: Identifying claims that need verification');
@@ -86,6 +87,17 @@ async function performInitialScreening(
   });
 
   const screeningContent = screeningResponse.output_text;
+
+  // Send partial AI response (first 50 chars)
+  if (screeningContent && onProgress) {
+    const partial = screeningContent.trim().slice(0, 50);
+    onProgress({
+      type: 'screening',
+      data: {
+        partialAIResponse: partial.length < screeningContent.length ? `${partial}...` : partial,
+      },
+    });
+  }
 
   if (!screeningContent) {
     throw new ProcessingError(ERROR_MESSAGES.NO_SCREENING_RESPONSE);
@@ -129,7 +141,8 @@ async function performInitialScreening(
 async function searchForClaims(
   openai: OpenAI,
   claims: ClaimToVerify[],
-  modelName: string
+  modelName: string,
+  onProgress?: (event: ProgressEvent) => void
 ): Promise<Source[][]> {
   const stepStart = Date.now();
   logger.info('Step 2: Searching web for verification', { claimCount: claims.length });
@@ -164,6 +177,18 @@ async function searchForClaims(
             mergedResults.push(result);
           }
         }
+      }
+
+      // Send search results preview (truncate titles to 50 chars)
+      if (mergedResults.length > 0 && onProgress) {
+        onProgress({
+          type: 'searching',
+          data: {
+            searchResults: mergedResults.slice(0, 3).map(r =>
+              r.title.length > 50 ? `${r.title.slice(0, 47)}...` : r.title
+            ),
+          },
+        });
       }
 
       logger.debug('Search completed', {
@@ -419,7 +444,7 @@ export async function verifyInput(
     // Step 1: Try to identify claims that need verification
     // If LLM finds no claims, it's likely a question
     onProgress?.({ type: 'screening', message: 'Extracting verifiable claims...' });
-    const claimsToVerify = await performInitialScreening(openai, text, modelName, languageInstruction);
+    const claimsToVerify = await performInitialScreening(openai, text, modelName, languageInstruction, onProgress);
 
     // If no claims found, treat as a question and route to question answerer
     if (claimsToVerify.length === 0) {
@@ -443,7 +468,7 @@ export async function verifyInput(
 
     // Step 2: Search web for each claim
     onProgress?.({ type: 'searching', message: 'Searching web for evidence...' });
-    const allSearchResults = await searchForClaims(openai, claimsToVerify, modelName);
+    const allSearchResults = await searchForClaims(openai, claimsToVerify, modelName, onProgress);
 
     // Step 3: Verify each claim with its search results
     const claimResults: ClaimVerificationResult[] = [];

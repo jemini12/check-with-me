@@ -200,6 +200,12 @@ export interface ProgressEvent {
     /** Whether this is in dream mode (creative imagination) */
     isDreamMode?: boolean;
 
+    /** Partial data from OpenAI response (truncated to 50 chars) */
+    partialAIResponse?: string;
+
+    /** Search result titles (truncated to 50 chars each) */
+    searchResults?: string[];
+
     /** Error details */
     error?: {
       message: string;

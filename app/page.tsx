@@ -37,6 +37,10 @@ function HomeContent() {
   const [progressEvent, setProgressEvent] = useState<ProgressEvent | null>(null);
   const [dreamMode, setDreamMode] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [partialData, setPartialData] = useState<{
+    partialAIResponse?: string;
+    searchResults?: string[];
+  }>({});
 
   // Multi-language titles
   const TITLES = [
@@ -140,6 +144,7 @@ function HomeContent() {
     setError(null);
     setResult(null);
     setProgressEvent(null);
+    setPartialData({});
     setLastCheckedText(text);
 
     try {
@@ -185,11 +190,30 @@ function HomeContent() {
               const eventData = line.slice(6);
               try {
                 const event: ProgressEvent = JSON.parse(eventData);
-                setProgressEvent(event);
+
+                // Preserve partial data across events
+                if (event.data?.partialAIResponse) {
+                  setPartialData(prev => ({ ...prev, partialAIResponse: event.data?.partialAIResponse }));
+                }
+                if (event.data?.searchResults) {
+                  setPartialData(prev => ({ ...prev, searchResults: event.data?.searchResults }));
+                }
+
+                // Merge partial data into event
+                const enrichedEvent: ProgressEvent = {
+                  ...event,
+                  data: {
+                    ...event.data,
+                    ...partialData,
+                  },
+                };
+
+                setProgressEvent(enrichedEvent);
 
                 // Handle different event types
                 if (event.type === 'complete' && event.data?.result) {
                   setResult(event.data.result);
+                  setPartialData({}); // Clear partial data on complete
                 } else if (event.type === 'error') {
                   throw new Error(event.message || 'Verification failed');
                 }

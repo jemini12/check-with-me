@@ -8,7 +8,7 @@ export const API_CONFIG = {
   MAX_TEXT_LENGTH: 1000,
 
   /** Maximum number of web search results to retrieve per claim */
-  MAX_SEARCH_RESULTS: 7,
+  MAX_SEARCH_RESULTS: 3,
 
   /** Web search depth level */
   SEARCH_DEPTH: 'basic' as const,
@@ -22,7 +22,7 @@ export const OPENAI_CONFIG = {
   DEFAULT_MODEL: 'gpt-5-nano' as const,
 
   /** Maximum output tokens for OpenAI API calls */
-  MAX_OUTPUT_TOKENS: 8000,
+  MAX_OUTPUT_TOKENS: 5000,
 
   /** Maximum output tokens for claim generation */
   CLAIM_GENERATION_MAX_TOKENS: 1000,
