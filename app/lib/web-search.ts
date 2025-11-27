@@ -39,28 +39,52 @@ export async function searchWeb(query: string): Promise<Source[]> {
   const client = createTavilyClient();
 
   if (!client) {
+    logger.debug('Tavily client not configured, skipping search');
     return [];
   }
 
-  try {
-    logger.debug('Searching web', { query, maxResults: API_CONFIG.MAX_SEARCH_RESULTS });
+  const timer = logger.startTimer('Tavily web search');
 
+  try {
+    logger.debug('Searching web via Tavily', {
+      queryLength: query.length,
+      maxResults: API_CONFIG.MAX_SEARCH_RESULTS,
+      searchDepth: API_CONFIG.SEARCH_DEPTH,
+    });
+
+    const apiStart = Date.now();
     const response = await client.search(query, {
       maxResults: API_CONFIG.MAX_SEARCH_RESULTS,
       searchDepth: API_CONFIG.SEARCH_DEPTH,
       includeAnswer: API_CONFIG.INCLUDE_ANSWER,
     });
+    const apiDuration = Date.now() - apiStart;
 
     const sources = response.results.map(mapSearchResultToSource);
 
-    logger.debug('Web search completed', {
-      query,
-      resultCount: sources.length
+    timer.end({
+      resultCount: sources.length,
+      hasResults: sources.length > 0,
+    });
+
+    logger.apiCall('Tavily', 'search', apiDuration, {
+      queryLength: query.length,
+      resultCount: sources.length,
+      searchDepth: API_CONFIG.SEARCH_DEPTH,
+    });
+
+    logger.info('Web search completed', {
+      resultCount: sources.length,
     });
 
     return sources;
   } catch (error) {
-    logger.error('Error searching web', error, { query });
+    timer.end({ failed: true });
+
+    logger.error('Tavily web search failed', error, {
+      queryLength: query.length,
+      maxResults: API_CONFIG.MAX_SEARCH_RESULTS,
+    });
 
     // Re-throw as ExternalAPIError for better error handling upstream
     throw new ExternalAPIError(

@@ -69,21 +69,32 @@ async function parseAndValidateRequest(request: NextRequest): Promise<{
  * Supports both streaming (SSE) and standard JSON responses
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const requestTimer = logger.startTimer('POST /api/verify');
   const startTime = Date.now();
   let text = '';
+  let statusCode = 200;
 
-  // Get client info for logging
+  // Get client info for logging and tracking
   const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip');
   const userAgent = request.headers.get('user-agent');
   const sessionId = generateSessionId(ip, userAgent);
   const ipHash = hashIp(ip);
+
+  // Generate request ID for tracing
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  logger.setRequestId(requestId);
 
   // Check if client accepts streaming
   const acceptHeader = request.headers.get('accept') || '';
   const wantsStream = acceptHeader.includes('text/event-stream');
 
   try {
-    logger.info('Received verification request', { wantsStream });
+    logger.requestStart('POST', '/api/verify', {
+      requestId,
+      wantsStream,
+      ipHash: ipHash || undefined,
+      sessionId,
+    });
 
     // Parse and validate request
     const { text: requestText, dreamMode } = await parseAndValidateRequest(request);
@@ -95,7 +106,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const cachedResult = !dreamMode ? await getFromHistory(text) : null;
     if (cachedResult) {
       const responseTimeMs = Date.now() - startTime;
-      logger.info('Returning cached result from history', { responseTimeMs });
+      logger.info('Cache hit - returning cached result', {
+        responseTimeMs,
+        factChecksCount: cachedResult.fact_checks.length,
+      });
 
       // Still log the cache hit
       await logFactCheck({
@@ -106,6 +120,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         ipHash: ipHash || undefined,
         userAgent: userAgent || undefined,
       });
+
+      requestTimer.end({ cached: true, factChecksCount: cachedResult.fact_checks.length });
+      logger.clearRequestId();
 
       // For streaming requests, send cached result as complete event
       if (wantsStream) {
@@ -196,7 +213,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
               });
             }
 
-            logger.info('Streaming verification completed', { responseTimeMs });
+            requestTimer.end({
+              dreamMode,
+              factChecksCount: response.fact_checks.length,
+              hasFailures: response.has_failures,
+            });
+
+            logger.requestEnd('POST', '/api/verify', 200, responseTimeMs, {
+              dreamMode,
+              factChecksCount: response.fact_checks.length,
+              streaming: true,
+            });
+
+            logger.clearRequestId();
           } catch (error) {
             // Send error event
             const errorEvent: ProgressEvent = {
@@ -260,16 +289,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const responseTimeMs = Date.now() - startTime;
 
-    logger.info('Verification request completed successfully', {
-      textLength: text.length,
+    const failedClaims = response.claim_results?.filter(r => r.status === 'failed').length || 0;
+
+    logger.info('Verification completed - standard JSON response', {
       factChecksFound: response.fact_checks.length,
       hasFailures: response.has_failures,
-      failedClaims: response.claim_results?.filter(r => r.status === 'failed').length || 0,
-      responseTimeMs,
+      failedClaims,
+      dreamMode,
     });
 
     // Don't cache if claims were found but all were below confidence threshold
-    const shouldCache = !(
+    const shouldCache = !dreamMode && !(
       response.claim_results &&
       response.claim_results.length > 0 &&
       response.fact_checks.length === 0
@@ -286,14 +316,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         userAgent: userAgent || undefined,
       });
     } else {
-      logger.info('Skipping cache - all results below confidence threshold', {
-        claimCount: response.claim_results?.length || 0,
+      logger.info('Skipping cache', {
+        dreamMode,
+        lowConfidence: (response.claim_results?.length ?? 0) > 0 && response.fact_checks.length === 0,
       });
     }
+
+    requestTimer.end({
+      dreamMode,
+      factChecksCount: response.fact_checks.length,
+      hasFailures: response.has_failures,
+      failedClaims,
+    });
+
+    logger.requestEnd('POST', '/api/verify', 200, responseTimeMs, {
+      dreamMode,
+      factChecksCount: response.fact_checks.length,
+      streaming: false,
+    });
+
+    logger.clearRequestId();
 
     return NextResponse.json(response);
   } catch (error) {
     const responseTimeMs = Date.now() - startTime;
+
+    // Determine status code from error
+    statusCode = isAppError(error) ? (error as { statusCode?: number }).statusCode || 500 : 500;
+
+    logger.error('Verification request failed', error, {
+      textLength: text.length || 0,
+      statusCode,
+    });
 
     // Log error to history if we have the text
     if (text) {
@@ -308,6 +362,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         errorMessage: getErrorMessage(error),
       });
     }
+
+    requestTimer.end({ failed: true, statusCode });
+
+    logger.requestEnd('POST', '/api/verify', statusCode, responseTimeMs, {
+      error: true,
+      errorCode: isAppError(error) ? error.code : 'UNKNOWN_ERROR',
+    });
+
+    logger.clearRequestId();
 
     return createErrorResponse(error);
   }

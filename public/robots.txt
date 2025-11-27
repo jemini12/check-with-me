@@ -3,4 +3,4 @@ User-agent: *
 Allow: /
 
 # Sitemap location
-Sitemap: https://check-with-me.vercel.app/sitemap.xml
+Sitemap: https://chqwm.vercel.app/sitemap.xml

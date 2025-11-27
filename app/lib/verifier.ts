@@ -72,18 +72,30 @@ async function performInitialScreening(
   languageInstruction: string,
   onProgress?: (event: ProgressEvent) => void
 ): Promise<ClaimToVerify[]> {
-  const stepStart = Date.now();
-  logger.info('Step 1: Identifying claims that need verification');
+  const timer = logger.startTimer('Initial screening');
+  logger.info('Step 1: Identifying claims that need verification', { textLength: text.length });
 
   const params = createOpenAIParams(modelName, OPENAI_CONFIG.SCREENING_EFFORT);
   const screeningInput = createScreeningInput(text);
 
-  logger.debug('Screening input', { input: screeningInput });
+  logger.debug('Screening input prepared', {
+    inputLength: screeningInput.length,
+    model: modelName,
+    effort: OPENAI_CONFIG.SCREENING_EFFORT,
+  });
 
+  const apiStart = Date.now();
   const screeningResponse = await openai.responses.create({
     ...params,
     instructions: createInitialScreeningPrompt(languageInstruction),
     input: screeningInput,
+  });
+  const apiDuration = Date.now() - apiStart;
+
+  logger.apiCall('OpenAI', 'screening', apiDuration, {
+    model: modelName,
+    effort: OPENAI_CONFIG.SCREENING_EFFORT,
+    usage: screeningResponse.usage,
   });
 
   const screeningContent = screeningResponse.output_text;
@@ -100,16 +112,26 @@ async function performInitialScreening(
   }
 
   if (!screeningContent) {
+    logger.error('No screening response received from OpenAI', undefined, {
+      model: modelName,
+      responseId: screeningResponse.id,
+      status: screeningResponse.status,
+    });
     throw new ProcessingError(ERROR_MESSAGES.NO_SCREENING_RESPONSE);
   }
 
   logger.debug('Screening response received', {
-    outputLength: screeningContent.length
+    outputLength: screeningContent.length,
+    responseId: screeningResponse.id,
   });
 
   const parsedClaims = safeJsonParse<unknown[]>(screeningContent.trim());
 
   if (!parsedClaims) {
+    logger.error('Failed to parse screening response as JSON', undefined, {
+      contentPreview: screeningContent.substring(0, 200),
+      contentLength: screeningContent.length,
+    });
     throw new ProcessingError('Failed to parse screening response as JSON', {
       content: screeningContent.substring(0, 200),
     });
@@ -118,16 +140,18 @@ async function performInitialScreening(
   const validatedClaims = validateClaimsToVerify(parsedClaims);
 
   if (validatedClaims.length === 0) {
-    logger.info('No claims identified for verification', {
-      elapsedMs: getElapsedMs(stepStart),
-    });
+    timer.end({ claimsFound: 0 });
+    logger.info('No claims identified for verification');
     return [];
   }
 
+  timer.end({
+    claimsFound: validatedClaims.length,
+    claimLengths: validatedClaims.map(c => c.claim.length),
+  });
+
   logger.info('Claims identified for verification', {
     count: validatedClaims.length,
-    claims: validatedClaims.map(c => c.claim),
-    elapsedMs: getElapsedMs(stepStart),
   });
 
   return validatedClaims;
@@ -144,27 +168,33 @@ async function searchForClaims(
   modelName: string,
   onProgress?: (event: ProgressEvent) => void
 ): Promise<Source[][]> {
-  const stepStart = Date.now();
+  const timer = logger.startTimer('Web search for all claims');
   logger.info('Step 2: Searching web for verification', { claimCount: claims.length });
 
-  const searchPromises = claims.map(async ({ claim }) => {
+  const searchPromises = claims.map(async ({ claim }, index) => {
+    const claimTimer = logger.startTimer(`Search claim ${index + 1}`);
+
     try {
       logger.debug('Generating optimized search queries', {
-        claim: claim.substring(0, 50),
+        claimIndex: index + 1,
+        claimLength: claim.length,
       });
 
       // Generate optimized English queries using LLM
       const searchQueries = await generateSearchQueries(openai, claim, modelName);
 
       logger.debug('Search queries generated', {
-        claim: claim.substring(0, 50),
+        claimIndex: index + 1,
+        queryCount: searchQueries.length,
         queries: searchQueries,
       });
 
       // Search with each query in parallel
+      const searchStart = Date.now();
       const searchResults = await Promise.all(
         searchQueries.map(query => searchWeb(query).catch(() => []))
       );
+      const searchDuration = Date.now() - searchStart;
 
       // Merge results, deduplicate by URL
       const urlSet = new Set<string>();
@@ -191,27 +221,42 @@ async function searchForClaims(
         });
       }
 
-      logger.debug('Search completed', {
-        claim: claim.substring(0, 50),
+      claimTimer.end({
+        claimIndex: index + 1,
         queriesUsed: searchQueries.length,
         totalResults: mergedResults.length,
+        searchDurationMs: searchDuration,
+      });
+
+      logger.info('Search completed for claim', {
+        claimIndex: index + 1,
+        queriesUsed: searchQueries.length,
+        resultsFound: mergedResults.length,
       });
 
       return mergedResults;
     } catch (error) {
-      logger.warn('Search failed for claim, continuing with empty results', { claim, error });
+      logger.warn('Search failed for claim, continuing with empty results', {
+        claimIndex: index + 1,
+        error,
+      });
+      claimTimer.end({ claimIndex: index + 1, failed: true });
       return [];
     }
   });
 
   const allSearchResults = await Promise.all(searchPromises);
 
-  logger.debug('Web search completed', {
-    claims: claims.map((claim, idx) => ({
-      claim: claim.claim,
-      resultCount: allSearchResults[idx].length,
-    })),
-    elapsedMs: getElapsedMs(stepStart),
+  const totalResults = allSearchResults.reduce((sum, results) => sum + results.length, 0);
+  timer.end({
+    totalClaims: claims.length,
+    totalResults,
+    avgResultsPerClaim: (totalResults / claims.length).toFixed(1),
+  });
+
+  logger.info('Web search completed for all claims', {
+    totalResults,
+    claimsSearched: claims.length,
   });
 
   return allSearchResults;
@@ -231,17 +276,20 @@ async function verifyClaim(
   totalClaims: number,
   languageInstruction: string
 ): Promise<ClaimVerificationResult> {
-  const claimStart = Date.now();
-  logger.debug('Processing claim', {
-    index: claimIndex + 1,
-    total: totalClaims,
-    claim: claim.claim,
+  const timer = logger.startTimer(`Verify claim ${claimIndex + 1}/${totalClaims}`);
+
+  logger.info('Processing claim verification', {
+    claimIndex: claimIndex + 1,
+    totalClaims,
     searchResultCount: searchResults.length,
   });
 
   try {
     if (searchResults.length === 0) {
-      logger.warn('No search results available for claim', { claim: claim.claim });
+      logger.warn('No search results available for claim', {
+        claimIndex: claimIndex + 1,
+      });
+      timer.end({ failed: true, reason: 'no_search_results' });
       return {
         claim: claim.claim,
         status: 'failed',
@@ -258,7 +306,7 @@ async function verifyClaim(
     const verificationInput = createVerificationInput(claim.claim);
 
     logger.debug('Calling OpenAI verification API', {
-      claim: claim.claim,
+      claimIndex: claimIndex + 1,
       model: params.model,
       reasoningEffort: OPENAI_CONFIG.VERIFICATION_EFFORT,
       maxOutputTokens: params.max_output_tokens,
@@ -266,41 +314,33 @@ async function verifyClaim(
       webContextLength: webContext.length,
     });
 
-    logger.debug('Verification input', {
-      claim: claim.claim,
-      input: verificationInput,
-      webContext: webContext,
-    });
-
+    const apiStart = Date.now();
     const verificationResponse = await openai.responses.create({
       ...params,
       instructions: createVerificationPrompt(webContext, languageInstruction),
       input: verificationInput,
     });
+    const apiDuration = Date.now() - apiStart;
 
-    logger.debug('OpenAI verification response received', {
-      claim: claim.claim,
-      responseId: verificationResponse.id,
-      model: verificationResponse.model,
-      status: verificationResponse.status,
-      hasOutputText: !!verificationResponse.output_text,
-      outputTextLength: verificationResponse.output_text?.length || 0,
+    logger.apiCall('OpenAI', 'verification', apiDuration, {
+      claimIndex: claimIndex + 1,
+      model: modelName,
+      effort: OPENAI_CONFIG.VERIFICATION_EFFORT,
       usage: verificationResponse.usage,
-      responseKeys: Object.keys(verificationResponse),
+      responseId: verificationResponse.id,
     });
 
     const verificationContent = verificationResponse.output_text;
 
     if (!verificationContent) {
-      logger.warn('No verification response received', {
-        claim: claim.claim,
+      logger.error('No verification response received from OpenAI', undefined, {
+        claimIndex: claimIndex + 1,
         responseId: verificationResponse.id,
         status: verificationResponse.status,
         model: verificationResponse.model,
         usage: verificationResponse.usage,
-        allResponseKeys: Object.keys(verificationResponse),
-        fullResponse: JSON.stringify(verificationResponse, null, 2),
       });
+      timer.end({ failed: true, reason: 'empty_response' });
       return {
         claim: claim.claim,
         status: 'failed',
@@ -313,14 +353,9 @@ async function verifyClaim(
     }
 
     logger.debug('Verification response received', {
-      claim: claim.claim,
+      claimIndex: claimIndex + 1,
       outputLength: verificationContent.length,
-      contentPreview: verificationContent.substring(0, 500),
-    });
-
-    logger.debug('Attempting to parse verification JSON', {
-      claim: claim.claim,
-      contentLength: verificationContent.length,
+      responseId: verificationResponse.id,
     });
 
     const parsedVerification = safeJsonParse<Array<Omit<FactCheck, 'start' | 'end' | 'sources'>>>(
@@ -328,12 +363,12 @@ async function verifyClaim(
     );
 
     if (!parsedVerification || !Array.isArray(parsedVerification)) {
-      logger.warn('Failed to parse verification response', {
-        claim: claim.claim,
+      logger.error('Failed to parse verification response as JSON', undefined, {
+        claimIndex: claimIndex + 1,
         contentLength: verificationContent.length,
-        fullContent: verificationContent,
-        parseResult: parsedVerification,
+        contentPreview: verificationContent.substring(0, 200),
       });
+      timer.end({ failed: true, reason: 'parse_error' });
       return {
         claim: claim.claim,
         status: 'failed',
@@ -346,9 +381,8 @@ async function verifyClaim(
     }
 
     logger.debug('Successfully parsed verification JSON', {
-      claim: claim.claim,
-      parsedCount: parsedVerification.length,
-      parsedItems: parsedVerification,
+      claimIndex: claimIndex + 1,
+      issuesFound: parsedVerification.length,
     });
 
     // Map verification results to FactCheck objects with position information
@@ -361,10 +395,15 @@ async function verifyClaim(
       };
     });
 
-    logger.info('Verification complete for claim', {
-      claim: claim.claim,
+    timer.end({
+      claimIndex: claimIndex + 1,
       issuesFound: factChecks.length,
-      elapsedMs: getElapsedMs(claimStart),
+      success: true,
+    });
+
+    logger.info('Verification complete for claim', {
+      claimIndex: claimIndex + 1,
+      issuesFound: factChecks.length,
     });
 
     return {
@@ -373,12 +412,6 @@ async function verifyClaim(
       factChecks,
     };
   } catch (error) {
-    logger.error('Error verifying claim', {
-      claim: claim.claim,
-      error,
-      elapsedMs: getElapsedMs(claimStart),
-    });
-
     // Determine error type and retryability
     let errorCode = 'UNKNOWN_ERROR';
     let errorMessage = 'Failed to verify claim';
@@ -399,6 +432,14 @@ async function verifyClaim(
         retryable = false;
       }
     }
+
+    logger.error('Error verifying claim', error, {
+      claimIndex: claimIndex + 1,
+      errorCode,
+      retryable,
+    });
+
+    timer.end({ failed: true, errorCode });
 
     return {
       claim: claim.claim,
@@ -424,8 +465,9 @@ export async function verifyInput(
   text: string,
   onProgress?: (event: ProgressEvent) => void
 ): Promise<FactCheckResponse> {
+  const processTimer = logger.startTimer('Complete fact-check process');
+
   try {
-    const processStart = Date.now();
     const openai = createOpenAIClient();
     const modelName = getOpenAIModel(OPENAI_CONFIG.DEFAULT_MODEL);
 
@@ -471,6 +513,10 @@ export async function verifyInput(
     const allSearchResults = await searchForClaims(openai, claimsToVerify, modelName, onProgress);
 
     // Step 3: Verify each claim with its search results
+    logger.info('Step 3: Verifying claims with evidence', {
+      totalClaims: claimsToVerify.length,
+    });
+
     const claimResults: ClaimVerificationResult[] = [];
     for (let i = 0; i < claimsToVerify.length; i++) {
       const claim = claimsToVerify[i];
@@ -523,19 +569,29 @@ export async function verifyInput(
     );
 
     const hasFailures = claimResults.some(r => r.status === 'failed');
+    const successfulClaims = claimResults.filter(r => r.status === 'success').length;
+    const failedClaims = claimResults.filter(r => r.status === 'failed').length;
 
     logger.info('Filtered fact checks by confidence', {
       totalChecks: allFactChecks.length,
       filteredChecks: filteredFactChecks.length,
+      filteredOut: allFactChecks.length - filteredFactChecks.length,
       minConfidence: CONFIDENCE_THRESHOLDS.MIN_CONFIDENCE,
-      elapsedMs: getElapsedMs(processStart),
     });
 
-    logger.info('Fact-check process completed', {
-      elapsedMs: getElapsedMs(processStart),
+    processTimer.end({
       totalClaims: claimsToVerify.length,
-      successfulClaims: claimResults.filter(r => r.status === 'success').length,
-      failedClaims: claimResults.filter(r => r.status === 'failed').length,
+      successfulClaims,
+      failedClaims,
+      totalChecks: allFactChecks.length,
+      returnedChecks: filteredFactChecks.length,
+      hasFailures,
+    });
+
+    logger.info('Fact-check process completed successfully', {
+      totalClaims: claimsToVerify.length,
+      successfulClaims,
+      failedClaims,
       returnedChecks: filteredFactChecks.length,
       hasFailures,
     });
@@ -555,7 +611,11 @@ export async function verifyInput(
 
     return finalResult;
   } catch (error) {
-    logger.error('Error checking facts', error);
+    logger.error('Fact-check process failed', error, {
+      textLength: text.length,
+    });
+
+    processTimer.end({ failed: true });
 
     onProgress?.({
       type: 'error',

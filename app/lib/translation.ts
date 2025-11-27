@@ -10,9 +10,15 @@ export async function generateSearchQueries(
   claim: string,
   modelName: string
 ): Promise<string[]> {
-  try {
-    logger.debug('Generating search queries', { claim: claim.substring(0, 50) });
+  const timer = logger.startTimer('Generate search queries');
 
+  try {
+    logger.debug('Generating optimized search queries', {
+      claimLength: claim.length,
+      model: modelName,
+    });
+
+    const apiStart = Date.now();
     const response = await openai.chat.completions.create({
       model: modelName,
       messages: [
@@ -43,25 +49,65 @@ Output: ["Eiffel Tower height meters", "Eiffel Tower 324 meters official height"
         },
       ],
     });
+    const apiDuration = Date.now() - apiStart;
+
+    logger.apiCall('OpenAI', 'query-generation', apiDuration, {
+      model: modelName,
+      usage: response.usage,
+    });
 
     const content = response.choices[0]?.message?.content?.trim();
     if (!content) {
-      logger.warn('Empty response from query generation, using original claim');
+      logger.warn('Empty response from query generation, using original claim', {
+        model: modelName,
+        responseId: response.id,
+      });
+      timer.end({ failed: true, reason: 'empty_response', fallback: true });
       return [claim];
     }
 
     // Parse JSON response
-    const queries = JSON.parse(content) as string[];
+    let queries: string[];
+    try {
+      queries = JSON.parse(content) as string[];
+    } catch (parseError) {
+      logger.warn('Failed to parse query generation response, using original claim', {
+        parseError,
+        contentLength: content.length,
+        contentPreview: content.substring(0, 100),
+      });
+      timer.end({ failed: true, reason: 'parse_error', fallback: true });
+      return [claim];
+    }
 
-    logger.debug('Search queries generated', {
-      claim: claim.substring(0, 50),
+    if (!Array.isArray(queries) || queries.length === 0) {
+      logger.warn('Invalid queries format, using original claim', {
+        queriesType: typeof queries,
+        queriesLength: Array.isArray(queries) ? queries.length : 0,
+      });
+      timer.end({ failed: true, reason: 'invalid_format', fallback: true });
+      return [claim];
+    }
+
+    timer.end({
+      queriesGenerated: queries.length,
+      success: true,
+    });
+
+    logger.info('Search queries generated successfully', {
       queriesGenerated: queries.length,
       queries,
     });
 
-    return queries.length > 0 ? queries : [claim];
+    return queries;
   } catch (error) {
-    logger.warn('Query generation failed, using original claim', { error, claim });
+    timer.end({ failed: true, fallback: true });
+
+    logger.warn('Query generation failed, using original claim as fallback', {
+      error,
+      claimLength: claim.length,
+    });
+
     return [claim];
   }
 }
