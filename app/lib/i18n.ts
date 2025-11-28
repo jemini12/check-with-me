@@ -4,6 +4,7 @@ export const translations = {
   en: {
     // Header
     help: 'Help',
+    about: 'About',
     back: 'Back',
 
     // Main page
@@ -99,6 +100,7 @@ export const translations = {
   ko: {
     // Header
     help: '도움말',
+    about: '소개',
     back: '뒤로',
 
     // Main page
