@@ -6,6 +6,7 @@ import { logger } from '../../lib/logger';
 import { getErrorMessage } from '../../lib/errors';
 import { createClaimGenerationPrompt } from '../../lib/prompts';
 import { getLanguageInstruction } from '../../lib/language-detect';
+import { safeJsonParse } from '../../lib/validation';
 
 /**
  * POST endpoint for generating interesting claims/questions
@@ -100,12 +101,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       responseId: response.id,
     });
 
-    // Parse JSON response
-    let parsed: { claim: string };
-    try {
-      parsed = JSON.parse(content);
-    } catch (error) {
-      logger.error('Failed to parse claim generation response as JSON', error, {
+    // Parse JSON response with safe Unicode handling
+    const parsed = safeJsonParse<{ claim: string }>(content);
+    if (!parsed) {
+      logger.error('Failed to parse claim generation response as JSON', undefined, {
         contentLength: content.length,
         contentPreview: content.substring(0, 100),
       });

@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { logger } from './logger';
+import { safeJsonParse } from './validation';
 
 /**
  * Generates optimized search queries for a claim using OpenAI
@@ -66,13 +67,10 @@ Output: ["Eiffel Tower height meters", "Eiffel Tower 324 meters official height"
       return [claim];
     }
 
-    // Parse JSON response
-    let queries: string[];
-    try {
-      queries = JSON.parse(content) as string[];
-    } catch (parseError) {
+    // Parse JSON response with safe Unicode handling
+    const queries = safeJsonParse<string[]>(content);
+    if (!queries) {
       logger.warn('Failed to parse query generation response, using original claim', {
-        parseError,
         contentLength: content.length,
         contentPreview: content.substring(0, 100),
       });

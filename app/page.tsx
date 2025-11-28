@@ -9,6 +9,7 @@ import { FactCheckResponse, ShareResponse, ProgressEvent } from './lib/types';
 import { ProgressIndicator } from './components/ProgressIndicator';
 import LanguageSwitch from './components/LanguageSwitch';
 import { useLanguage } from './contexts/LanguageContext';
+import { safeJsonParse } from './lib/validation';
 
 // Loading skeleton component
 function LoadingSkeleton() {
@@ -184,7 +185,11 @@ function HomeContent() {
             if (line.startsWith('data: ')) {
               const eventData = line.slice(6);
               try {
-                const event: ProgressEvent = JSON.parse(eventData);
+                const event = safeJsonParse<ProgressEvent>(eventData);
+                if (!event) {
+                  console.error('Failed to parse SSE event:', eventData);
+                  continue;
+                }
 
                 // Update progress event with merged partial data
                 setProgressEvent(currentEvent => {

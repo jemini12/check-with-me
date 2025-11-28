@@ -54,15 +54,61 @@ export function isValidConfidence(value: unknown): value is number {
 }
 
 /**
- * Safely parses JSON with error handling
+ * Sanitizes a string for safe JSON parsing by handling Unicode issues
+ * @param str - The string to sanitize
+ * @returns Sanitized string safe for JSON parsing
+ */
+function sanitizeForJsonParse(str: string): string {
+  // Remove or replace problematic Unicode characters
+  // Replace null bytes and control characters
+  let sanitized = str.replace(/\u0000/g, '');
+
+  // Fix common Unicode encoding issues
+  // Remove BOMs (Byte Order Marks)
+  sanitized = sanitized.replace(/^\uFEFF/, '');
+
+  // Replace invalid surrogate pairs
+  sanitized = sanitized.replace(/[\uD800-\uDFFF]/g, '');
+
+  // Normalize Unicode to composed form
+  try {
+    sanitized = sanitized.normalize('NFC');
+  } catch {
+    // If normalization fails, continue with non-normalized string
+  }
+
+  return sanitized;
+}
+
+/**
+ * Safely parses JSON with error handling and Unicode sanitization
  * @param jsonString - The JSON string to parse
  * @returns The parsed object or null if parsing fails
  */
 export function safeJsonParse<T>(jsonString: string): T | null {
   try {
+    // First attempt: try parsing as-is
     return JSON.parse(jsonString) as T;
-  } catch {
-    return null;
+  } catch (firstError) {
+    try {
+      // Second attempt: sanitize and retry
+      const sanitized = sanitizeForJsonParse(jsonString);
+      return JSON.parse(sanitized) as T;
+    } catch (secondError) {
+      // Third attempt: try to extract JSON from markdown code blocks
+      const codeBlockMatch = jsonString.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+      if (codeBlockMatch) {
+        try {
+          const extracted = sanitizeForJsonParse(codeBlockMatch[1].trim());
+          return JSON.parse(extracted) as T;
+        } catch {
+          // If extraction fails, fall through to return null
+        }
+      }
+
+      // All attempts failed
+      return null;
+    }
   }
 }
 
