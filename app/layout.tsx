@@ -75,7 +75,7 @@ export const metadata: Metadata = {
     },
   },
   verification: {
-    google: "google-site-verification-code", // Replace with actual code when available
+    google: "XhsRvfRAAu6PTtmMr77mL38Rt13IYuZNfsREBxd0Xt8",
   },
   category: "technology",
 };
