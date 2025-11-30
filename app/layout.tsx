@@ -3,6 +3,7 @@ import "./globals.css";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { HtmlLangUpdater } from "./components/HtmlLangUpdater";
 import StructuredData from "./components/StructuredData";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: {
@@ -107,6 +108,7 @@ export default function RootLayout({
           </a>
           {children}
         </LanguageProvider>
+        <Analytics />
       </body>
     </html>
   );
