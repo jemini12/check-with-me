@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { track } from '@vercel/analytics';
 import { FactCheck, ClaimVerificationResult } from '../lib/types';
 import BottomSheet from './BottomSheet';
 import { RetryButton } from './RetryButton';
@@ -139,7 +140,20 @@ export default function HighlightedText({
                   <span
                     key={index}
                     className={`${getHighlightColor(segment.factCheck)} cursor-pointer border-b-2 ${getBorderColor(segment.factCheck)}`}
-                    onClick={() => setSelectedFactCheck(segment.factCheck!)}
+                    onClick={() => {
+                      setSelectedFactCheck(segment.factCheck!);
+
+                      // Track claim viewed
+                      track('claim_viewed', {
+                        isAccurate: segment.factCheck!.is_accurate,
+                        isDreamMode: segment.factCheck!.is_dream_mode || false,
+                        isQuestion: segment.factCheck!.is_question || false,
+                        confidence: Math.round(segment.factCheck!.confidence * 100) / 100,
+                      });
+
+                      // Track virtual page view
+                      track('page_view', { state: 'claim-details' });
+                    }}
                     title={segment.factCheck.reason}
                   >
                     {segment.text}
@@ -337,6 +351,12 @@ export default function HighlightedText({
                         target="_blank"
                         rel="noopener noreferrer"
                         className="block p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                        onClick={() => {
+                          // Track source click
+                          track('source_clicked', {
+                            domain: new URL(source.url).hostname,
+                          });
+                        }}
                       >
                         <div className="flex items-start gap-2">
                           <svg className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

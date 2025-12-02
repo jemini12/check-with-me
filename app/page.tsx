@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { track } from '@vercel/analytics';
 import TextInput from './components/TextInput';
 import HighlightedText from './components/HighlightedText';
 import { FactCheckResponse, ShareResponse, ProgressEvent } from './lib/types';
@@ -38,6 +39,11 @@ function HomeContent() {
   const [progressEvent, setProgressEvent] = useState<ProgressEvent | null>(null);
   const [dreamMode, setDreamMode] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Track initial page view
+  useEffect(() => {
+    track('page_view', { state: 'home' });
+  }, []);
 
   // Multi-language titles
   const TITLES = [
@@ -143,6 +149,15 @@ function HomeContent() {
     setProgressEvent(null);
     setLastCheckedText(text);
 
+    // Track verification started
+    track('verification_started', {
+      textLength: text.length,
+      dreamMode: dreamMode,
+    });
+
+    // Track virtual page view
+    track('page_view', { state: 'verification-in-progress' });
+
     try {
       const response = await fetch('/api/verify', {
         method: 'POST',
@@ -220,6 +235,16 @@ function HomeContent() {
                 // Handle different event types
                 if (event.type === 'complete' && event.data?.result) {
                   setResult(event.data.result);
+
+                  // Track verification completed
+                  track('verification_completed', {
+                    claimsCount: event.data.result.fact_checks?.length || 0,
+                    hasFailures: event.data.result.has_failures || false,
+                    dreamMode: dreamMode,
+                  });
+
+                  // Track virtual page view
+                  track('page_view', { state: 'results-displayed' });
                 } else if (event.type === 'error') {
                   throw new Error(event.message || 'Verification failed');
                 }
@@ -233,6 +258,16 @@ function HomeContent() {
         // Fallback to standard JSON response
         const data: FactCheckResponse = await response.json();
         setResult(data);
+
+        // Track verification completed
+        track('verification_completed', {
+          claimsCount: data.fact_checks?.length || 0,
+          hasFailures: data.has_failures || false,
+          dreamMode: dreamMode,
+        });
+
+        // Track virtual page view
+        track('page_view', { state: 'results-displayed' });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -275,6 +310,9 @@ function HomeContent() {
 
       // Copy to clipboard
       await navigator.clipboard.writeText(data.shareUrl);
+
+      // Track successful share
+      track('result_shared');
     } catch (err) {
       console.error('Share failed:', err);
       throw err;
@@ -309,6 +347,12 @@ function HomeContent() {
 
       const data = await response.json();
       setLastCheckedText(data.claim);
+
+      // Track example generation
+      track('example_generated', {
+        dreamMode: dreamMode,
+        language: language,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : t('failedToGenerateClaim'));
     } finally {

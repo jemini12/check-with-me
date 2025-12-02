@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, KeyboardEvent, useState } from 'react';
+import { track } from '@vercel/analytics';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface TextInputProps {
@@ -122,7 +123,15 @@ export default function TextInput({ onCheckFacts, isLoading, text: controlledTex
             <span className="text-sm text-gray-700">{t('dreamMode')}</span>
             <button
               type="button"
-              onClick={() => onDreamModeChange(!dreamMode)}
+              onClick={() => {
+                const newValue = !dreamMode;
+                onDreamModeChange(newValue);
+
+                // Track Dream Mode toggle
+                track('dream_mode_toggled', {
+                  enabled: newValue,
+                });
+              }}
               disabled={isLoading}
               className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
                 dreamMode
